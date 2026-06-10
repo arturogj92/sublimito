@@ -73,7 +73,13 @@ private struct OpenBufferRow: View {
             }
         }
         .contentShape(Rectangle())
-        .onTapGesture { state.activeID = buffer.id }
+        .gesture(TapGesture(count: 2).onEnded {
+            state.activeID = buffer.id
+            state.renamingID = buffer.id
+        })
+        .simultaneousGesture(TapGesture(count: 1).onEnded {
+            state.activeID = buffer.id
+        })
         .overlay(MiddleClickCatcher { state.close(buffer) })
         .listRowBackground(isActive ? Color.accentColor.opacity(0.18) : Color.clear)
         .contextMenu {

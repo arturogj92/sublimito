@@ -67,7 +67,14 @@ private struct TabItemView: View {
             if isActive { Rectangle().fill(Color.accentColor).frame(height: 2) }
         }
         .contentShape(Rectangle())
-        .onTapGesture { state.activeID = buffer.id }
+        .gesture(TapGesture(count: 2).onEnded {
+            state.activeID = buffer.id
+            state.sidebarVisible = true // el campo de renombrar vive en la sidebar
+            state.renamingID = buffer.id
+        })
+        .simultaneousGesture(TapGesture(count: 1).onEnded {
+            state.activeID = buffer.id
+        })
         .overlay(MiddleClickCatcher { state.close(buffer) })
         .onHover { hovering = $0 }
         .contextMenu {

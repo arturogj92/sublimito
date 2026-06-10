@@ -1,8 +1,9 @@
 import SwiftUI
 import AppKit
 
-/// Captura SOLO los clics del botón central del ratón y deja pasar el resto
-/// de eventos a las vistas de debajo. Se usa para cerrar pestañas con la rueda.
+/// Detecta clics del botón central del ratón sobre la zona de la vista usando un
+/// monitor local de eventos. No participa en el hit-testing, así que nunca
+/// interfiere con los clics y gestos normales (List de macOS incluido).
 struct MiddleClickCatcher: NSViewRepresentable {
     let action: () -> Void
 
@@ -18,21 +19,40 @@ struct MiddleClickCatcher: NSViewRepresentable {
 
     final class CatcherView: NSView {
         var action: (() -> Void)?
+        private var monitor: Any?
 
         override func hitTest(_ point: NSPoint) -> NSView? {
-            if let event = NSApp.currentEvent,
-               event.type == .otherMouseDown || event.type == .otherMouseUp || event.type == .otherMouseDragged {
-                return super.hitTest(point)
-            }
-            return nil
+            nil // transparente a todos los clics normales
         }
 
-        override func otherMouseUp(with event: NSEvent) {
-            if event.buttonNumber == 2 {
-                action?()
-            } else {
-                super.otherMouseUp(with: event)
+        override func viewDidMoveToWindow() {
+            super.viewDidMoveToWindow()
+            if window == nil {
+                removeMonitor()
+            } else if monitor == nil {
+                monitor = NSEvent.addLocalMonitorForEvents(matching: [.otherMouseUp]) { [weak self] event in
+                    guard let self,
+                          event.buttonNumber == 2,
+                          let window = self.window,
+                          event.window === window,
+                          !self.isHiddenOrHasHiddenAncestor else { return event }
+                    let point = self.convert(event.locationInWindow, from: nil)
+                    guard self.bounds.contains(point) else { return event }
+                    self.action?()
+                    return nil
+                }
             }
+        }
+
+        private func removeMonitor() {
+            if let monitor {
+                NSEvent.removeMonitor(monitor)
+                self.monitor = nil
+            }
+        }
+
+        deinit {
+            removeMonitor()
         }
     }
 }
