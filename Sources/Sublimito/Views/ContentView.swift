@@ -25,7 +25,7 @@ struct ContentView: View {
             }
             return true
         }
-        .navigationTitle(state.activeBuffer?.name ?? "Notable")
+        .navigationTitle(state.activeBuffer?.name ?? "Sublimito")
         .navigationSubtitle(state.activeBuffer?.fileURL?.deletingLastPathComponent().path ?? "")
         .frame(minWidth: 700, minHeight: 420)
     }

@@ -2,7 +2,7 @@ import AppKit
 import UniformTypeIdentifiers
 
 let home = FileManager.default.homeDirectoryForCurrentUser
-let app = home.appendingPathComponent("Applications/Notable.app")
+let app = home.appendingPathComponent("Applications/Sublimito.app")
 var types = Set<UTType>([.plainText, .text])
 if let md = UTType("net.daringfireball.markdown") { types.insert(md) }
 for ext in ["txt", "md", "markdown", "log", "ini", "cfg", "conf", "yaml", "yml"] {

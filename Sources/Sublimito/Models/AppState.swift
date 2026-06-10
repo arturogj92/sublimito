@@ -69,7 +69,14 @@ final class AppState: ObservableObject {
 
     static let supportDirectory: URL = {
         let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-        return base.appendingPathComponent("Notable", isDirectory: true)
+        let dir = base.appendingPathComponent("Sublimito", isDirectory: true)
+        // Migración desde la época en que la app se llamaba Notable.
+        let legacy = base.appendingPathComponent("Notable", isDirectory: true)
+        if !FileManager.default.fileExists(atPath: dir.path),
+           FileManager.default.fileExists(atPath: legacy.path) {
+            try? FileManager.default.moveItem(at: legacy, to: dir)
+        }
+        return dir
     }()
     static let draftsDirectory = supportDirectory.appendingPathComponent("Buffers", isDirectory: true)
     private static let sessionURL = supportDirectory.appendingPathComponent("session.json")

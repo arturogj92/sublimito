@@ -1,10 +1,14 @@
-# Notable
+# Sublimito
 
 Editor de texto nativo para macOS, estilo Sublime Text. Texto plano con visor de Markdown.
 
+_Native macOS plain text editor with a Sublime-style workflow: total hot exit, single window with tabs, Markdown preview and external change detection._
+
+Licencia MIT. Incluye [marked](https://github.com/markedjs/marked) y [github-markdown-css](https://github.com/sindresorhus/github-markdown-css), ver `THIRD_PARTY_LICENSES.md`.
+
 ## Features
 
-- **Nada se pierde nunca:** todo buffer es un fichero físico. Las notas sin guardar se respaldan en `~/Library/Application Support/Notable/Buffers/` desde el primer carácter (autosave 2s). Hot exit total: cierra la app o la pestaña sin guardar y se recupera.
+- **Nada se pierde nunca:** todo buffer es un fichero físico. Las notas sin guardar se respaldan en `~/Library/Application Support/Sublimito/Buffers/` desde el primer carácter (autosave 2s). Hot exit total: cierra la app o la pestaña sin guardar y se recupera.
 - **Ventana única con pestañas.** Abrir desde Finder, dock o Cmd+O siempre va a la misma ventana.
 - **Markdown:** Cmd+Shift+P alterna entre raw y preview renderizado (estilo GitHub, claro/oscuro). Botón "Copiar raw".
 - **Sidebar:** Fijados, Abiertos y Recientes (30, persistidos). Fijar, renombrar, cerrar y mostrar en Finder desde el menú contextual.
@@ -16,8 +20,8 @@ Editor de texto nativo para macOS, estilo Sublime Text. Texto plano con visor de
 
 ```bash
 xcodegen generate
-xcodebuild -project Notable.xcodeproj -scheme Notable -configuration Debug -derivedDataPath build CODE_SIGN_IDENTITY=- build
-cp -R build/Build/Products/Debug/Notable.app ~/Applications/
+xcodebuild -project Sublimito.xcodeproj -scheme Sublimito -configuration Debug -derivedDataPath build CODE_SIGN_IDENTITY=- build
+cp -R build/Build/Products/Debug/Sublimito.app ~/Applications/
 ```
 
 ## App por defecto para ficheros de texto
@@ -26,7 +30,7 @@ cp -R build/Build/Products/Debug/Notable.app ~/Applications/
 swift scripts/set-default-app.swift
 ```
 
-Registra Notable como handler de txt, md, markdown, log, ini, cfg, conf, yaml y yml.
+Registra Sublimito como handler de txt, md, markdown, log, ini, cfg, conf, yaml y yml.
 
 ## Atajos
 

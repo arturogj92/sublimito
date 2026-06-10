@@ -2,18 +2,18 @@ import SwiftUI
 import AppKit
 
 @main
-struct NotableApp: App {
+struct SublimitoApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
     @StateObject private var state = AppState.shared
 
     var body: some Scene {
-        Window("Notable", id: "main") {
+        Window("Sublimito", id: "main") {
             ContentView()
                 .environmentObject(state)
         }
         .windowToolbarStyle(.unified)
         .commands {
-            NotableCommands(state: state)
+            SublimitoCommands(state: state)
         }
     }
 }
@@ -41,7 +41,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 }
 
-struct NotableCommands: Commands {
+struct SublimitoCommands: Commands {
     @ObservedObject var state: AppState
 
     var body: some Commands {
