@@ -1,0 +1,14 @@
+# XcodeGen genera el proyecto, no se versiona
+Notable.xcodeproj/
+
+# Build
+build/
+DerivedData/
+*.xcarchive
+
+# macOS
+.DS_Store
+
+# Xcode user state
+xcuserdata/
+*.xcuserstate
