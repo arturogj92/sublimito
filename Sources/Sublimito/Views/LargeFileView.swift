@@ -15,8 +15,14 @@ final class LargeFileModel: ObservableObject {
     @Published var offset: UInt64 = 0
     @Published var text: String = ""
     @Published var query: String = "" {
-        didSet { recomputeWindowMatches() }
+        didSet {
+            recomputeWindowMatches()
+            scheduleGlobalCount()
+        }
     }
+    @Published var globalCount: Int?
+    @Published var counting = false
+    private var countTask: Task<Void, Never>?
     @Published var status: String = ""
     @Published var searching = false
     @Published var windowMatches: [NSRange] = []
@@ -37,9 +43,22 @@ final class LargeFileModel: ObservableObject {
 
     var matchCounter: String {
         guard !query.isEmpty else { return "" }
-        guard !windowMatches.isEmpty else { return "0 in view" }
-        let current = (currentMatch ?? 0) + 1
-        return "\(current) of \(windowMatches.count) in view"
+        var parts: [String] = []
+        if windowMatches.isEmpty {
+            parts.append("0 in view")
+        } else {
+            parts.append("\((currentMatch ?? 0) + 1) of \(windowMatches.count) in view")
+        }
+        if let total = globalCount {
+            parts.append("\(Self.formatCount(total)) in file")
+        }
+        return parts.joined(separator: "  ·  ")
+    }
+
+    static func formatCount(_ n: Int) -> String {
+        let formatter = NumberFormatter()
+        formatter.numberStyle = .decimal
+        return formatter.string(from: NSNumber(value: n)) ?? "\(n)"
     }
 
     func refresh(selectNearByte: Int? = nil) {
@@ -93,6 +112,75 @@ final class LargeFileModel: ObservableObject {
             currentMatch = windowMatches.firstIndex { $0.location >= pos } ?? 0
         } else {
             currentMatch = 0
+        }
+    }
+
+    /// Cuenta todas las ocurrencias del fichero completo en background.
+    private func scheduleGlobalCount() {
+        countTask?.cancel()
+        globalCount = nil
+        guard !query.isEmpty, let data else { counting = false; return }
+        counting = true
+        let needle = Array(query.lowercased().utf8).map { $0 | 0x20 }
+        countTask = Task.detached(priority: .utility) { [weak self] in
+            try? await Task.sleep(nanoseconds: 500_000_000) // debounce mientras escribe
+            if Task.isCancelled { return }
+            let total = Self.countOccurrences(data: data, needle: needle)
+            if Task.isCancelled { return }
+            await MainActor.run { [weak self] in
+                guard let self, !Task.isCancelled else { return }
+                self.globalCount = total
+                self.counting = false
+            }
+        }
+    }
+
+    /// Escaneo completo con memchr sobre el primer byte (rápido para GB).
+    nonisolated private static func countOccurrences(data: Data, needle: [UInt8]) -> Int? {
+        let n = needle.count
+        guard n > 0, data.count >= n else { return 0 }
+        return data.withUnsafeBytes { (raw: UnsafeRawBufferPointer) -> Int? in
+            guard let base = raw.baseAddress else { return 0 }
+            let bytes = raw.bindMemory(to: UInt8.self)
+            let limit = raw.count - n
+            let lower = needle[0]
+            // Ambas variantes del byte plegado (cubre letras y símbolos como @ vs `)
+            let upper = lower & ~0x20
+            var count = 0
+            var i = 0
+            var lastCancelCheck = 0
+            while i <= limit {
+                // Candidato más cercano del primer byte (variantes mayúscula y minúscula)
+                let remaining = raw.count - i
+                let posLower = memchr(base + i, Int32(lower), remaining)
+                let posUpper = memchr(base + i, Int32(upper), remaining)
+                var candidate: Int
+                switch (posLower, posUpper) {
+                case (nil, nil): return count
+                case (let l?, nil): candidate = base.distance(to: UnsafeRawPointer(l))
+                case (nil, let u?): candidate = base.distance(to: UnsafeRawPointer(u))
+                case (let l?, let u?):
+                    candidate = min(base.distance(to: UnsafeRawPointer(l)),
+                                    base.distance(to: UnsafeRawPointer(u)))
+                }
+                if candidate > limit { return count }
+                var match = true
+                for j in 1..<n where (bytes[candidate + j] | 0x20) != needle[j] {
+                    match = false
+                    break
+                }
+                if match {
+                    count += 1
+                    i = candidate + n
+                } else {
+                    i = candidate + 1
+                }
+                if i - lastCancelCheck > 8_000_000 {
+                    lastCancelCheck = i
+                    if Task.isCancelled { return nil }
+                }
+            }
+            return count
         }
     }
 
@@ -247,6 +335,10 @@ struct LargeFileView: View {
                 Text(model.matchCounter)
                     .foregroundStyle(.secondary)
                     .monospacedDigit()
+                if model.counting {
+                    ProgressView().controlSize(.mini)
+                        .help("Counting occurrences in the whole file…")
+                }
             }
             Button(action: { model.findPrev() }) { Image(systemName: "chevron.up") }
                 .help("Previous match (whole file)")
