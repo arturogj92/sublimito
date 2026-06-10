@@ -64,6 +64,23 @@ struct SublimitoCommands: Commands {
             Button("Ir a pestaña o reciente…") { state.quickOpenShown = true }
                 .keyboardShortcut("p", modifiers: .command)
         }
+        CommandGroup(after: .pasteboard) {
+            Divider()
+            Menu("Buscar") {
+                Button("Buscar…") { FindActions.send(.showFindInterface) }
+                    .keyboardShortcut("f", modifiers: .command)
+                Button("Buscar y reemplazar…") { FindActions.send(.showReplaceInterface) }
+                    .keyboardShortcut("f", modifiers: [.command, .option])
+                Divider()
+                Button("Siguiente coincidencia") { FindActions.send(.nextMatch) }
+                    .keyboardShortcut("g", modifiers: .command)
+                Button("Coincidencia anterior") { FindActions.send(.previousMatch) }
+                    .keyboardShortcut("g", modifiers: [.command, .shift])
+                Divider()
+                Button("Usar selección para buscar") { FindActions.send(.setSearchString) }
+                    .keyboardShortcut("e", modifiers: .command)
+            }
+        }
         CommandMenu("Ver") {
             Button(state.activeBuffer?.isPreview == true ? "Editar texto" : "Vista Markdown") {
                 state.togglePreview()

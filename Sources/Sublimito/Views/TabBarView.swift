@@ -81,6 +81,7 @@ private struct TabItemView: View {
             Button(buffer.isPinned ? "Desfijar" : "Fijar") { state.togglePin(buffer) }
             Button("Renombrar") { state.renamingID = buffer.id }
             Button("Guardar") { state.save(buffer) }
+            Button("Mostrar en Finder") { state.showInFinder(buffer) }
             Divider()
             Button("Cerrar pestaña") { state.close(buffer) }
         }

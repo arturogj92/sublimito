@@ -149,9 +149,13 @@ private struct StatusBarView: View {
     var body: some View {
         HStack(spacing: 14) {
             if let url = buffer.fileURL {
-                Text(url.path)
-                    .lineLimit(1)
-                    .truncationMode(.head)
+                Button(action: { state.showInFinder(buffer) }) {
+                    Text(url.path)
+                        .lineLimit(1)
+                        .truncationMode(.head)
+                }
+                .buttonStyle(.plain)
+                .help("Mostrar en Finder")
             } else {
                 Label("Nota temporal, respaldada automáticamente", systemImage: "internaldrive")
             }
