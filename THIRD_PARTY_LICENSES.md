@@ -8,6 +8,12 @@ Markdown parser. https://github.com/markedjs/marked
 
 MIT License. Copyright (c) 2018+, MarkedJS (https://github.com/markedjs/). Copyright (c) 2011-2018, Christopher Jeffrey (https://github.com/chjj/).
 
+## Monaco Editor (monaco/)
+
+Editor de código de VS Code. https://github.com/microsoft/monaco-editor
+
+MIT License. Copyright (c) Microsoft Corporation. Texto completo en `monaco/LICENSE.txt`.
+
 ## github-markdown-css (Resources/github-markdown.css)
 
 Estilos de Markdown de GitHub. https://github.com/sindresorhus/github-markdown-css

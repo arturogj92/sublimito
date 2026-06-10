@@ -4,7 +4,7 @@ Editor de texto nativo para macOS, estilo Sublime Text. Texto plano con visor de
 
 _Native macOS plain text editor with a Sublime-style workflow: total hot exit, single window with tabs, Markdown preview and external change detection._
 
-Licencia MIT. Incluye [marked](https://github.com/markedjs/marked) y [github-markdown-css](https://github.com/sindresorhus/github-markdown-css), ver `THIRD_PARTY_LICENSES.md`.
+Licencia MIT con [Commons Clause](https://commonsclause.com): puedes usarla, modificarla y compartirla libremente, pero no venderla. Incluye [marked](https://github.com/markedjs/marked), [github-markdown-css](https://github.com/sindresorhus/github-markdown-css) y [Monaco Editor](https://github.com/microsoft/monaco-editor), ver `THIRD_PARTY_LICENSES.md`.
 
 ## Features
 
