@@ -114,10 +114,10 @@ final class AppState: ObservableObject {
 
     private func nextUntitledName() -> String {
         let existing = Set(buffers.map(\.name))
-        if !existing.contains("Sin título") { return "Sin título" }
+        if !existing.contains("Untitled") { return "Untitled" }
         var n = 2
-        while existing.contains("Sin título \(n)") { n += 1 }
-        return "Sin título \(n)"
+        while existing.contains("Untitled \(n)") { n += 1 }
+        return "Untitled \(n)"
     }
 
     func openWithPanel() {
@@ -136,7 +136,7 @@ final class AppState: ObservableObject {
             return
         }
         guard let disk = Self.readText(at: url) else {
-            Self.alert("No se pudo abrir", "No se pudo leer \(url.lastPathComponent) como texto.")
+            Self.alert("Could Not Open", "Could not read \(url.lastPathComponent) as text.")
             return
         }
         // Si se cerró con cambios sin guardar, recupera el draft.
@@ -166,7 +166,7 @@ final class AppState: ObservableObject {
             }
             let draftURL = Self.draftsDirectory.appendingPathComponent(dID.uuidString + ".txt")
             guard let draft = Self.readText(at: draftURL) else {
-                Self.alert("No recuperable", "El contenido de \"\(entry.name)\" ya no está en disco.")
+                Self.alert("Not Recoverable", "The content of \"\(entry.name)\" is no longer on disk.")
                 recents.removeAll { $0.id == entry.id }
                 persistRecentsSoon()
                 return
@@ -246,7 +246,7 @@ final class AppState: ObservableObject {
         do {
             try buffer.content.write(to: url, atomically: true, encoding: .utf8)
         } catch {
-            Self.alert("No se pudo guardar", error.localizedDescription)
+            Self.alert("Could Not Save", error.localizedDescription)
             return
         }
         buffer.lastDiskContent = buffer.content
@@ -307,7 +307,7 @@ final class AppState: ObservableObject {
             do {
                 try FileManager.default.moveItem(at: url, to: dest)
             } catch {
-                Self.alert("No se pudo renombrar", error.localizedDescription)
+                Self.alert("Could Not Rename", error.localizedDescription)
                 return
             }
             buffer.fileURL = dest

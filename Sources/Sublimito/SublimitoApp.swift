@@ -46,74 +46,74 @@ struct SublimitoCommands: Commands {
 
     var body: some Commands {
         CommandGroup(replacing: .newItem) {
-            Button("Nueva nota") { state.newBuffer() }
+            Button("New Note") { state.newBuffer() }
                 .keyboardShortcut("n", modifiers: .command)
-            Button("Abrir…") { state.openWithPanel() }
+            Button("Open…") { state.openWithPanel() }
                 .keyboardShortcut("o", modifiers: .command)
         }
         CommandGroup(replacing: .saveItem) {
-            Button("Guardar") { state.saveActive() }
+            Button("Save") { state.saveActive() }
                 .keyboardShortcut("s", modifiers: .command)
-            Button("Guardar como…") { state.saveActiveAs() }
+            Button("Save As…") { state.saveActiveAs() }
                 .keyboardShortcut("s", modifiers: [.command, .shift])
             Divider()
-            Button("Cerrar pestaña") { state.closeActive() }
+            Button("Close Tab") { state.closeActive() }
                 .keyboardShortcut("w", modifiers: .command)
         }
         CommandGroup(replacing: .printItem) {
-            Button("Ir a pestaña o reciente…") { state.quickOpenShown = true }
+            Button("Go to Tab or Recent…") { state.quickOpenShown = true }
                 .keyboardShortcut("p", modifiers: .command)
         }
         CommandGroup(after: .pasteboard) {
             Divider()
-            Menu("Buscar") {
-                Button("Buscar…") { FindActions.send(.showFindInterface) }
+            Menu("Find") {
+                Button("Find…") { FindActions.send(.showFindInterface) }
                     .keyboardShortcut("f", modifiers: .command)
-                Button("Buscar y reemplazar…") { FindActions.send(.showReplaceInterface) }
+                Button("Find & Replace…") { FindActions.send(.showReplaceInterface) }
                     .keyboardShortcut("f", modifiers: [.command, .option])
                 Divider()
-                Button("Siguiente coincidencia") { FindActions.send(.nextMatch) }
+                Button("Find Next") { FindActions.send(.nextMatch) }
                     .keyboardShortcut("g", modifiers: .command)
-                Button("Coincidencia anterior") { FindActions.send(.previousMatch) }
+                Button("Find Previous") { FindActions.send(.previousMatch) }
                     .keyboardShortcut("g", modifiers: [.command, .shift])
                 Divider()
-                Button("Usar selección para buscar") { FindActions.send(.setSearchString) }
+                Button("Use Selection for Find") { FindActions.send(.setSearchString) }
                     .keyboardShortcut("e", modifiers: .command)
             }
         }
-        CommandMenu("Ver") {
-            Button(state.activeBuffer?.isPreview == true ? "Editar texto" : "Vista Markdown") {
+        CommandMenu("View") {
+            Button(state.activeBuffer?.isPreview == true ? "Edit Text" : "Markdown Preview") {
                 state.togglePreview()
             }
             .keyboardShortcut("p", modifiers: [.command, .shift])
-            Button(state.sidebarVisible ? "Ocultar barra lateral" : "Mostrar barra lateral") {
+            Button(state.sidebarVisible ? "Hide Sidebar" : "Show Sidebar") {
                 state.sidebarVisible.toggle()
             }
             .keyboardShortcut("b", modifiers: .command)
             Divider()
-            Toggle("Ajuste de línea", isOn: Binding(
+            Toggle("Word Wrap", isOn: Binding(
                 get: { state.wordWrap },
                 set: { state.wordWrap = $0 }
             ))
-            Toggle("Números de línea", isOn: Binding(
+            Toggle("Line Numbers", isOn: Binding(
                 get: { state.showLineNumbers },
                 set: { state.showLineNumbers = $0 }
             ))
             Divider()
-            Button("Aumentar fuente") { state.fontSize = min(32, state.fontSize + 1) }
+            Button("Increase Font Size") { state.fontSize = min(32, state.fontSize + 1) }
                 .keyboardShortcut("+", modifiers: .command)
-            Button("Reducir fuente") { state.fontSize = max(9, state.fontSize - 1) }
+            Button("Decrease Font Size") { state.fontSize = max(9, state.fontSize - 1) }
                 .keyboardShortcut("-", modifiers: .command)
-            Button("Tamaño por defecto") { state.fontSize = 13 }
+            Button("Default Font Size") { state.fontSize = 13 }
                 .keyboardShortcut("0", modifiers: .command)
             Divider()
-            Button("Pestaña siguiente") { state.selectRelative(1) }
+            Button("Next Tab") { state.selectRelative(1) }
                 .keyboardShortcut("]", modifiers: [.command, .shift])
-            Button("Pestaña anterior") { state.selectRelative(-1) }
+            Button("Previous Tab") { state.selectRelative(-1) }
                 .keyboardShortcut("[", modifiers: [.command, .shift])
         }
         CommandGroup(replacing: .help) {
-            Button("Atajos de teclado") { state.shortcutsShown = true }
+            Button("Keyboard Shortcuts") { state.shortcutsShown = true }
                 .keyboardShortcut("?", modifiers: .command)
         }
     }

@@ -34,7 +34,7 @@ struct QuickOpenView: View {
         for buffer in state.orderedTabs {
             if let score = FuzzyMatcher.score(pattern: query, in: buffer.name) {
                 result.append(Item(id: "buf-\(buffer.id)", title: buffer.name,
-                                   subtitle: buffer.fileURL?.path ?? "Pestaña abierta",
+                                   subtitle: buffer.fileURL?.path ?? "Open tab",
                                    icon: buffer.isPinned ? "pin.fill" : "doc.text",
                                    target: .buffer(buffer), score: score + 100))
             }
@@ -44,7 +44,7 @@ struct QuickOpenView: View {
             let candidate = entry.name + " " + (entry.path ?? "")
             if let score = FuzzyMatcher.score(pattern: query, in: candidate) {
                 result.append(Item(id: "rec-\(entry.id)", title: entry.name,
-                                   subtitle: entry.path ?? "Nota sin guardar (reciente)",
+                                   subtitle: entry.path ?? "Unsaved note (recent)",
                                    icon: "clock", target: .recent(entry), score: score + 50))
             }
         }
@@ -53,7 +53,7 @@ struct QuickOpenView: View {
             for buffer in state.orderedTabs {
                 for match in Self.contentMatches(in: buffer.content, query: query, limit: 3) {
                     result.append(Item(id: "line-\(buffer.id)-\(match.range.location)",
-                                       title: "\(buffer.name)  ·  línea \(match.line)",
+                                       title: "\(buffer.name)  ·  line \(match.line)",
                                        subtitle: match.snippet,
                                        icon: "text.magnifyingglass",
                                        target: .bufferLine(buffer, match.range), score: 20))
@@ -63,7 +63,7 @@ struct QuickOpenView: View {
                 guard let content = Self.recentContent(entry) else { continue }
                 for match in Self.contentMatches(in: content, query: query, limit: 2) {
                     result.append(Item(id: "recline-\(entry.id)-\(match.range.location)",
-                                       title: "\(entry.name)  ·  línea \(match.line)",
+                                       title: "\(entry.name)  ·  line \(match.line)",
                                        subtitle: match.snippet,
                                        icon: "text.magnifyingglass",
                                        target: .recentLine(entry), score: 10))
@@ -124,7 +124,7 @@ struct QuickOpenView: View {
     private var panel: some View {
         let list = items
         return VStack(spacing: 0) {
-            TextField("Buscar pestaña, reciente o contenido…", text: $query)
+            TextField("Search tabs, recents or content…", text: $query)
                 .textFieldStyle(.plain)
                 .font(.system(size: 16))
                 .padding(12)
@@ -139,7 +139,7 @@ struct QuickOpenView: View {
                 .onKeyPress(.escape) { dismiss(); return .handled }
             Divider()
             if list.isEmpty {
-                Text("Sin resultados")
+                Text("No results")
                     .foregroundStyle(.secondary)
                     .padding(16)
             } else {

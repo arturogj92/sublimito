@@ -19,7 +19,7 @@ struct TabBarView: View {
                     }
                     .buttonStyle(.plain)
                     .foregroundStyle(.secondary)
-                    .help("Nueva nota (Cmd+N)")
+                    .help("New note (Cmd+N)")
                 }
             }
             .onChange(of: state.activeID) { _, newValue in
@@ -58,7 +58,7 @@ private struct TabItemView: View {
             .buttonStyle(.plain)
             .foregroundStyle(.secondary)
             .opacity(hovering ? 1 : 0)
-            .help("Cerrar pestaña (Cmd+W)")
+            .help("Close tab (Cmd+W)")
         }
         .padding(.horizontal, 10)
         .frame(height: 30)
@@ -78,12 +78,12 @@ private struct TabItemView: View {
         .overlay(MiddleClickCatcher { state.close(buffer) })
         .onHover { hovering = $0 }
         .contextMenu {
-            Button(buffer.isPinned ? "Desfijar" : "Fijar") { state.togglePin(buffer) }
-            Button("Renombrar") { state.renamingID = buffer.id }
-            Button("Guardar") { state.save(buffer) }
-            Button("Mostrar en Finder") { state.showInFinder(buffer) }
+            Button(buffer.isPinned ? "Unpin" : "Pin") { state.togglePin(buffer) }
+            Button("Rename") { state.renamingID = buffer.id }
+            Button("Save") { state.save(buffer) }
+            Button("Show in Finder") { state.showInFinder(buffer) }
             Divider()
-            Button("Cerrar pestaña") { state.close(buffer) }
+            Button("Close Tab") { state.close(buffer) }
         }
     }
 }

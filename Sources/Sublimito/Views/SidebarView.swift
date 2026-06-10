@@ -8,19 +8,19 @@ struct SidebarView: View {
         let unpinned = state.orderedTabs.filter { !$0.isPinned }
         List {
             if !pinned.isEmpty {
-                Section("Fijados") {
+                Section("Pinned") {
                     ForEach(pinned) { buffer in
                         OpenBufferRow(buffer: buffer)
                     }
                 }
             }
-            Section("Abiertos") {
+            Section("Open") {
                 ForEach(unpinned) { buffer in
                     OpenBufferRow(buffer: buffer)
                 }
             }
             if !state.visibleRecents.isEmpty {
-                Section("Recientes") {
+                Section("Recent") {
                     ForEach(state.visibleRecents) { entry in
                         RecentRow(entry: entry)
                     }
@@ -46,7 +46,7 @@ private struct OpenBufferRow: View {
                 .font(.system(size: 11))
                 .frame(width: 14)
             if state.renamingID == buffer.id {
-                TextField("Nombre", text: $draftName)
+                TextField("Name", text: $draftName)
                     .textFieldStyle(.plain)
                     .focused($nameFieldFocused)
                     .onSubmit { state.rename(buffer, to: draftName) }
@@ -83,14 +83,14 @@ private struct OpenBufferRow: View {
         .overlay(MiddleClickCatcher { state.close(buffer) })
         .listRowBackground(isActive ? Color.accentColor.opacity(0.18) : Color.clear)
         .contextMenu {
-            Button(buffer.isPinned ? "Desfijar" : "Fijar") { state.togglePin(buffer) }
-            Button("Renombrar") { state.renamingID = buffer.id }
-            Button("Guardar") { state.save(buffer) }
+            Button(buffer.isPinned ? "Unpin" : "Pin") { state.togglePin(buffer) }
+            Button("Rename") { state.renamingID = buffer.id }
+            Button("Save") { state.save(buffer) }
             if buffer.fileURL != nil || FileManager.default.fileExists(atPath: buffer.draftURL.path) {
-                Button("Mostrar en Finder") { state.showInFinder(buffer) }
+                Button("Show in Finder") { state.showInFinder(buffer) }
             }
             Divider()
-            Button("Cerrar pestaña") { state.close(buffer) }
+            Button("Close Tab") { state.close(buffer) }
         }
     }
 }
@@ -119,7 +119,7 @@ private struct RecentRow: View {
                         .lineLimit(1)
                         .truncationMode(.head)
                 } else {
-                    Text("Nota sin guardar")
+                    Text("Unsaved note")
                         .font(.system(size: 10))
                         .foregroundStyle(.tertiary)
                 }
@@ -129,8 +129,8 @@ private struct RecentRow: View {
         .contentShape(Rectangle())
         .onTapGesture { state.reopenRecent(entry) }
         .contextMenu {
-            Button("Abrir") { state.reopenRecent(entry) }
-            Button("Eliminar de recientes") { state.removeRecent(entry) }
+            Button("Open") { state.reopenRecent(entry) }
+            Button("Remove from Recents") { state.removeRecent(entry) }
         }
     }
 }

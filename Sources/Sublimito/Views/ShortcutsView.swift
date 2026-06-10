@@ -16,39 +16,39 @@ struct ShortcutsView: View {
     }
 
     private static let groups: [Group] = [
-        Group(title: "Ficheros y notas", items: [
-            Shortcut(keys: "⌘N", detail: "Nueva nota (se respalda sola, nunca se pierde)"),
-            Shortcut(keys: "⌘O", detail: "Abrir fichero"),
-            Shortcut(keys: "⌘S", detail: "Guardar"),
-            Shortcut(keys: "⇧⌘S", detail: "Guardar como…"),
-            Shortcut(keys: "⌘W", detail: "Cerrar pestaña (sin diálogos, se recupera de Recientes)"),
-            Shortcut(keys: "Clic central", detail: "Cerrar pestaña con la rueda, en pestañas y sidebar"),
-            Shortcut(keys: "Doble clic", detail: "Renombrar nota o fichero"),
+        Group(title: "Files & Notes", items: [
+            Shortcut(keys: "⌘N", detail: "New note (auto-backed up, never lost)"),
+            Shortcut(keys: "⌘O", detail: "Open file"),
+            Shortcut(keys: "⌘S", detail: "Save"),
+            Shortcut(keys: "⇧⌘S", detail: "Save As…"),
+            Shortcut(keys: "⌘W", detail: "Close tab (no dialogs, recoverable from Recents)"),
+            Shortcut(keys: "Middle Click", detail: "Close tab with the mouse wheel, on tabs and in the sidebar"),
+            Shortcut(keys: "Double Click", detail: "Rename note or file"),
         ]),
-        Group(title: "Buscar", items: [
-            Shortcut(keys: "⌘F", detail: "Buscar en el documento (con contador de ocurrencias)"),
-            Shortcut(keys: "⌥⌘F", detail: "Buscar y reemplazar"),
-            Shortcut(keys: "⌘G", detail: "Siguiente coincidencia"),
-            Shortcut(keys: "⇧⌘G", detail: "Coincidencia anterior"),
-            Shortcut(keys: "⌘E", detail: "Usar selección para buscar"),
-            Shortcut(keys: "⌘P", detail: "Ir a pestaña, reciente o buscar por contenido"),
+        Group(title: "Find", items: [
+            Shortcut(keys: "⌘F", detail: "Find in document (with match counter)"),
+            Shortcut(keys: "⌥⌘F", detail: "Find and replace"),
+            Shortcut(keys: "⌘G", detail: "Find Next"),
+            Shortcut(keys: "⇧⌘G", detail: "Find Previous"),
+            Shortcut(keys: "⌘E", detail: "Use Selection for Find"),
+            Shortcut(keys: "⌘P", detail: "Go to tab, recent, or search by content"),
         ]),
-        Group(title: "Vista", items: [
-            Shortcut(keys: "⇧⌘P", detail: "Alternar vista Markdown / texto raw"),
-            Shortcut(keys: "⌘B", detail: "Mostrar u ocultar la barra lateral"),
-            Shortcut(keys: "⌘+ / ⌘−", detail: "Aumentar o reducir la fuente"),
-            Shortcut(keys: "⌘0", detail: "Tamaño de fuente por defecto"),
+        Group(title: "View", items: [
+            Shortcut(keys: "⇧⌘P", detail: "Toggle Markdown preview / raw text"),
+            Shortcut(keys: "⌘B", detail: "Show or hide the sidebar"),
+            Shortcut(keys: "⌘+ / ⌘−", detail: "Increase or decrease font size"),
+            Shortcut(keys: "⌘0", detail: "Default font size"),
         ]),
-        Group(title: "Navegación", items: [
-            Shortcut(keys: "⇧⌘]", detail: "Pestaña siguiente"),
-            Shortcut(keys: "⇧⌘[", detail: "Pestaña anterior"),
+        Group(title: "Navigation", items: [
+            Shortcut(keys: "⇧⌘]", detail: "Next Tab"),
+            Shortcut(keys: "⇧⌘[", detail: "Previous Tab"),
         ]),
     ]
 
     var body: some View {
         VStack(spacing: 0) {
             HStack {
-                Text("Atajos de teclado")
+                Text("Keyboard Shortcuts")
                     .font(.title3.weight(.semibold))
                 Spacer()
                 Button(action: { state.shortcutsShown = false }) {

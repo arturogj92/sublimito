@@ -3,14 +3,13 @@ import UniformTypeIdentifiers
 
 struct ContentView: View {
     @EnvironmentObject var state: AppState
+    @State private var columnVisibility: NavigationSplitViewVisibility = .all
 
     var body: some View {
-        HStack(spacing: 0) {
-            if state.sidebarVisible {
-                SidebarView()
-                    .frame(width: 240)
-                Divider()
-            }
+        NavigationSplitView(columnVisibility: $columnVisibility) {
+            SidebarView()
+                .navigationSplitViewColumnWidth(min: 180, ideal: 240, max: 400)
+        } detail: {
             mainArea
         }
         .overlay {
@@ -30,8 +29,15 @@ struct ContentView: View {
             return true
         }
         .navigationTitle(state.activeBuffer?.name ?? "Sublimito")
-        .navigationSubtitle(state.activeBuffer?.fileURL?.deletingLastPathComponent().path ?? "")
         .frame(minWidth: 700, minHeight: 420)
+        .onAppear { columnVisibility = state.sidebarVisible ? .all : .detailOnly }
+        .onChange(of: state.sidebarVisible) { _, visible in
+            columnVisibility = visible ? .all : .detailOnly
+        }
+        .onChange(of: columnVisibility) { _, visibility in
+            let visible = visibility != .detailOnly
+            if state.sidebarVisible != visible { state.sidebarVisible = visible }
+        }
     }
 
     private var mainArea: some View {
@@ -43,7 +49,7 @@ struct ContentView: View {
                     .id(buffer.id)
             } else {
                 Spacer()
-                Text("Cmd+N para crear una nota")
+                Text("Cmd+N to create a note")
                     .foregroundStyle(.secondary)
                 Spacer()
             }
@@ -76,21 +82,21 @@ private struct BufferContainerView: View {
         case .conflict:
             BannerView(color: .orange,
                        icon: "exclamationmark.triangle.fill",
-                       text: "El fichero ha cambiado en disco y tienes cambios sin guardar.") {
-                Button("Recargar del disco") { state.resolveConflictReloadFromDisk(buffer) }
-                Button("Mantener lo mío") { state.resolveConflictKeepMine(buffer) }
+                       text: "The file changed on disk and you have unsaved changes.") {
+                Button("Reload from Disk") { state.resolveConflictReloadFromDisk(buffer) }
+                Button("Keep Mine") { state.resolveConflictKeepMine(buffer) }
             }
         case .fileDisappeared:
             BannerView(color: .red,
                        icon: "trash.slash.fill",
-                       text: "El fichero ha desaparecido del disco. La pestaña sigue respaldada como nota temporal.") {
-                Button("Guardar como…") { state.saveAs(buffer) }
-                Button("Entendido") { buffer.externalState = .none }
+                       text: "The file disappeared from disk. This tab is still backed up as a temporary note.") {
+                Button("Save As…") { state.saveAs(buffer) }
+                Button("Got It") { buffer.externalState = .none }
             }
         case .reloaded:
             BannerView(color: .blue,
                        icon: "arrow.triangle.2.circlepath",
-                       text: "Recargado automáticamente: el fichero cambió en disco.") {
+                       text: "Reloaded automatically: the file changed on disk.") {
                 EmptyView()
             }
         case .none:
@@ -100,7 +106,7 @@ private struct BufferContainerView: View {
 
     private var copyRawButton: some View {
         Button(action: copyRaw) {
-            Label("Copiar raw", systemImage: "doc.on.doc")
+            Label("Copy Raw", systemImage: "doc.on.doc")
                 .font(.system(size: 11, weight: .medium))
                 .padding(.horizontal, 10)
                 .padding(.vertical, 6)
@@ -109,7 +115,7 @@ private struct BufferContainerView: View {
         }
         .buttonStyle(.plain)
         .padding(12)
-        .help("Copiar el Markdown sin formato al portapapeles")
+        .help("Copy the raw Markdown source to the clipboard")
     }
 
     private func copyRaw() {
@@ -159,22 +165,22 @@ private struct StatusBarView: View {
                         .truncationMode(.head)
                 }
                 .buttonStyle(.plain)
-                .help("Mostrar en Finder")
+                .help("Show in Finder")
             } else {
-                Label("Nota temporal, respaldada automáticamente", systemImage: "internaldrive")
+                Label("Temporary note, backed up automatically", systemImage: "internaldrive")
             }
             Spacer()
-            Text("\(lines) líneas")
-            Text("\(words) palabras")
-            Text("\(buffer.content.count) caracteres")
+            Text("\(lines) lines")
+            Text("\(words) words")
+            Text("\(buffer.content.count) characters")
             Button(action: { state.togglePreview() }) {
-                Label(buffer.isPreview ? "Editar" : "Markdown",
+                Label(buffer.isPreview ? "Edit" : "Markdown",
                       systemImage: buffer.isPreview ? "pencil" : "eye")
                     .font(.system(size: 11))
             }
             .buttonStyle(.plain)
             .foregroundStyle(Color.accentColor)
-            .help("Alternar vista Markdown (Cmd+Shift+P)")
+            .help("Toggle Markdown preview (Cmd+Shift+P)")
         }
         .font(.system(size: 11))
         .foregroundStyle(.secondary)
