@@ -60,6 +60,8 @@ final class AppState: ObservableObject {
         didSet { UserDefaults.standard.set(minimapVisible, forKey: "minimapVisible") }
     }
     @Published var findInFilesShown = false
+    /// Incrementa para pedir foco en la barra de búsqueda del visor de ficheros grandes.
+    @Published var largeFileFindRequest = 0
     @Published var folderURL: URL? {
         didSet { UserDefaults.standard.set(folderURL?.path, forKey: "folderPath") }
     }

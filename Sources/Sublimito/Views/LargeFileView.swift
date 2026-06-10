@@ -2,7 +2,8 @@ import SwiftUI
 import AppKit
 
 /// Visor de ficheros enormes: lee por ventanas con el fichero mapeado en memoria,
-/// sin cargarlo entero jamás. Solo lectura, con búsqueda por streaming.
+/// sin cargarlo entero jamás. Solo lectura. Una única barra de búsqueda (abajo)
+/// que busca en el fichero completo por streaming y resalta lo visible.
 @MainActor
 final class LargeFileModel: ObservableObject {
     let url: URL
@@ -13,8 +14,13 @@ final class LargeFileModel: ObservableObject {
 
     @Published var offset: UInt64 = 0
     @Published var text: String = ""
-    @Published var query: String = ""
+    @Published var query: String = "" {
+        didSet { recomputeWindowMatches() }
+    }
     @Published var status: String = ""
+    @Published var searching = false
+    @Published var windowMatches: [NSRange] = []
+    @Published var currentMatch: Int?
 
     init(url: URL, fileSize: UInt64) {
         self.url = url
@@ -29,7 +35,14 @@ final class LargeFileModel: ObservableObject {
         set { jump(to: UInt64(newValue * Double(fileSize))) }
     }
 
-    func refresh() {
+    var matchCounter: String {
+        guard !query.isEmpty else { return "" }
+        guard !windowMatches.isEmpty else { return "0 in view" }
+        let current = (currentMatch ?? 0) + 1
+        return "\(current) of \(windowMatches.count) in view"
+    }
+
+    func refresh(selectNearByte: Int? = nil) {
         guard let data, !data.isEmpty else { text = ""; return }
         var start = Int(min(offset, UInt64(data.count - 1)))
         // Alinear el arranque al principio de una línea (hasta 4KB hacia atrás)
@@ -45,56 +58,123 @@ final class LargeFileModel: ObservableObject {
         let pct = fileSize > 0 ? Double(start) / Double(fileSize) * 100 : 0
         status = String(format: "%@ of %@ (%.1f%%)",
                         Self.format(UInt64(start)), Self.format(fileSize), pct)
+        var nearUTF16: Int?
+        if let byte = selectNearByte, byte >= start, byte <= end {
+            nearUTF16 = String(decoding: data[start..<byte], as: UTF8.self).utf16.count
+        }
+        recomputeWindowMatches(selectNear: nearUTF16)
     }
 
-    func nextWindow() {
-        jump(to: offset + UInt64(Self.windowSize))
-    }
+    func nextWindow() { jump(to: offset + UInt64(Self.windowSize)) }
+    func prevWindow() { jump(to: offset > UInt64(Self.windowSize) ? offset - UInt64(Self.windowSize) : 0) }
 
-    func prevWindow() {
-        jump(to: offset > UInt64(Self.windowSize) ? offset - UInt64(Self.windowSize) : 0)
-    }
-
-    func jump(to newOffset: UInt64) {
+    func jump(to newOffset: UInt64, selectNearByte: Int? = nil) {
         offset = min(newOffset, fileSize > 0 ? fileSize - 1 : 0)
-        refresh()
+        refresh(selectNearByte: selectNearByte)
     }
 
-    /// Busca la siguiente ocurrencia (case insensitive ASCII) desde la posición actual.
-    func findNext() {
-        guard let data, !query.isEmpty else { return }
-        // Mismo folding (| 0x20) en needle y haystack para comparar simétrico
-        let needle = Array(query.lowercased().utf8).map { $0 | 0x20 }
-        guard !needle.isEmpty else { return }
-        let from = Int(offset) + 1
-        if let pos = Self.scan(data: data, needle: needle, from: from)
-            ?? Self.scan(data: data, needle: needle, from: 0) { // vuelta al principio
-            jump(to: UInt64(pos))
-            status = "Match at \(Self.format(UInt64(pos)))  ·  " + status
+    // MARK: - Búsqueda
+
+    private func recomputeWindowMatches(selectNear utf16Pos: Int? = nil) {
+        windowMatches = []
+        currentMatch = nil
+        guard !query.isEmpty else { return }
+        let ns = text as NSString
+        var location = 0
+        while location < ns.length && windowMatches.count < 5000 {
+            let found = ns.range(of: query, options: .caseInsensitive,
+                                 range: NSRange(location: location, length: ns.length - location))
+            if found.location == NSNotFound { break }
+            windowMatches.append(found)
+            location = found.location + max(found.length, 1)
+        }
+        guard !windowMatches.isEmpty else { return }
+        if let pos = utf16Pos {
+            currentMatch = windowMatches.firstIndex { $0.location >= pos } ?? 0
         } else {
-            status = "No matches  ·  " + status
+            currentMatch = 0
         }
     }
 
-    private static func scan(data: Data, needle: [UInt8], from: Int) -> Int? {
+    /// Siguiente ocurrencia: primero dentro de la ventana, si no, escaneo global en background.
+    func findNext() {
+        guard !query.isEmpty else { return }
+        if let current = currentMatch, current + 1 < windowMatches.count {
+            currentMatch = current + 1
+            return
+        }
+        globalScan(forward: true)
+    }
+
+    func findPrev() {
+        guard !query.isEmpty else { return }
+        if let current = currentMatch, current > 0 {
+            currentMatch = current - 1
+            return
+        }
+        globalScan(forward: false)
+    }
+
+    private func globalScan(forward: Bool) {
+        guard let data, !searching else { return }
+        let needle = Array(query.lowercased().utf8).map { $0 | 0x20 }
+        guard !needle.isEmpty else { return }
+        let windowStart = Int(offset)
+        let windowEnd = min(data.count, windowStart + Self.windowSize)
+        searching = true
+        status = "Searching…"
+        Task.detached(priority: .userInitiated) { [weak self] in
+            var pos: Int?
+            if forward {
+                pos = Self.scan(data: data, needle: needle, from: windowEnd, forward: true)
+                    ?? Self.scan(data: data, needle: needle, from: 0, forward: true) // wrap
+            } else {
+                pos = Self.scan(data: data, needle: needle, from: windowStart - 1, forward: false)
+                    ?? Self.scan(data: data, needle: needle, from: data.count - 1, forward: false) // wrap
+            }
+            await MainActor.run { [weak self] in
+                guard let self else { return }
+                self.searching = false
+                if let pos {
+                    self.jump(to: UInt64(pos), selectNearByte: pos)
+                    if !forward, !self.windowMatches.isEmpty {
+                        // Al ir hacia atrás, selecciona la coincidencia encontrada, no la primera
+                        let target = self.currentMatch ?? 0
+                        self.currentMatch = max(0, min(target, self.windowMatches.count - 1))
+                    }
+                } else {
+                    self.status = "No matches  ·  " + self.status
+                }
+            }
+        }
+    }
+
+    nonisolated private static func scan(data: Data, needle: [UInt8], from: Int, forward: Bool) -> Int? {
         let n = needle.count
-        guard n > 0, from < data.count - n else { return nil }
+        guard n > 0, data.count >= n else { return nil }
         return data.withUnsafeBytes { (raw: UnsafeRawBufferPointer) -> Int? in
             let bytes = raw.bindMemory(to: UInt8.self)
-            let first = needle[0]
-            var i = from
             let limit = bytes.count - n
-            while i <= limit {
-                let c = bytes[i] | 0x20 // tolower aproximado para ASCII
-                if c == first {
-                    var match = true
-                    for j in 1..<n where (bytes[i + j] | 0x20) != needle[j] {
-                        match = false
-                        break
-                    }
-                    if match { return i }
+            let first = needle[0]
+
+            func matches(at i: Int) -> Bool {
+                if (bytes[i] | 0x20) != first { return false }
+                for j in 1..<n where (bytes[i + j] | 0x20) != needle[j] { return false }
+                return true
+            }
+
+            if forward {
+                var i = max(0, from)
+                while i <= limit {
+                    if matches(at: i) { return i }
+                    i += 1
                 }
-                i += 1
+            } else {
+                var i = min(from, limit)
+                while i >= 0 {
+                    if matches(at: i) { return i }
+                    i -= 1
+                }
             }
             return nil
         }
@@ -107,7 +187,9 @@ final class LargeFileModel: ObservableObject {
 
 struct LargeFileView: View {
     @ObservedObject var buffer: Buffer
+    @EnvironmentObject var state: AppState
     @StateObject private var model: LargeFileModel
+    @FocusState private var searchFocused: Bool
 
     init(buffer: Buffer) {
         self.buffer = buffer
@@ -120,7 +202,14 @@ struct LargeFileView: View {
         VStack(spacing: 0) {
             controls
             Divider()
-            ReadOnlyTextView(text: model.text)
+            LargeFileTextView(text: model.text,
+                              matches: model.windowMatches,
+                              currentMatch: model.currentMatch)
+            Divider()
+            searchBar
+        }
+        .onChange(of: state.largeFileFindRequest) { _, _ in
+            searchFocused = true
         }
     }
 
@@ -131,17 +220,13 @@ struct LargeFileView: View {
             Text(model.status)
                 .foregroundStyle(.secondary)
                 .lineLimit(1)
+            if model.searching { ProgressView().controlSize(.mini) }
             Slider(value: Binding(get: { model.fraction }, set: { model.fraction = $0 }))
                 .frame(maxWidth: 220)
             Button(action: { model.prevWindow() }) { Image(systemName: "chevron.left") }
                 .help("Previous chunk")
             Button(action: { model.nextWindow() }) { Image(systemName: "chevron.right") }
                 .help("Next chunk")
-            TextField("Find…", text: $model.query)
-                .textFieldStyle(.roundedBorder)
-                .frame(width: 160)
-                .onSubmit { model.findNext() }
-            Button("Next") { model.findNext() }
         }
         .controlSize(.small)
         .font(.system(size: 11))
@@ -149,18 +234,46 @@ struct LargeFileView: View {
         .padding(.vertical, 6)
         .background(Color(nsColor: .windowBackgroundColor))
     }
+
+    private var searchBar: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "magnifyingglass")
+                .foregroundStyle(.secondary)
+            TextField("Find in whole file…", text: $model.query)
+                .textFieldStyle(.plain)
+                .focused($searchFocused)
+                .onSubmit { model.findNext() }
+            if !model.query.isEmpty {
+                Text(model.matchCounter)
+                    .foregroundStyle(.secondary)
+                    .monospacedDigit()
+            }
+            Button(action: { model.findPrev() }) { Image(systemName: "chevron.up") }
+                .help("Previous match (whole file)")
+            Button(action: { model.findNext() }) { Image(systemName: "chevron.down") }
+                .help("Next match (whole file)")
+                .keyboardShortcut("g", modifiers: .command)
+        }
+        .controlSize(.small)
+        .font(.system(size: 12))
+        .padding(.horizontal, 10)
+        .padding(.vertical, 6)
+        .background(Color(nsColor: .windowBackgroundColor))
+    }
 }
 
-/// NSTextView de solo lectura para mostrar la ventana actual del fichero.
-private struct ReadOnlyTextView: NSViewRepresentable {
+/// NSTextView de solo lectura con resaltado de coincidencias.
+private struct LargeFileTextView: NSViewRepresentable {
     let text: String
+    let matches: [NSRange]
+    let currentMatch: Int?
 
     func makeNSView(context: Context) -> NSScrollView {
         let scrollView = NSTextView.scrollableTextView()
         let textView = scrollView.documentView as! NSTextView
         textView.isEditable = false
         textView.isRichText = false
-        textView.usesFindBar = true
+        textView.usesFindBar = false
         textView.font = .monospacedSystemFont(ofSize: 12, weight: .regular)
         textView.textContainerInset = NSSize(width: 8, height: 8)
         textView.autoresizingMask = [.width]
@@ -169,10 +282,26 @@ private struct ReadOnlyTextView: NSViewRepresentable {
     }
 
     func updateNSView(_ scrollView: NSScrollView, context: Context) {
-        guard let textView = scrollView.documentView as? NSTextView else { return }
+        guard let textView = scrollView.documentView as? NSTextView,
+              let storage = textView.textStorage else { return }
         if textView.string != text {
             textView.string = text
+            textView.font = .monospacedSystemFont(ofSize: 12, weight: .regular)
             textView.scrollToBeginningOfDocument(nil)
+        }
+        let full = NSRange(location: 0, length: storage.length)
+        storage.removeAttribute(.backgroundColor, range: full)
+        for range in matches where NSMaxRange(range) <= storage.length {
+            storage.addAttribute(.backgroundColor,
+                                 value: NSColor.systemYellow.withAlphaComponent(0.30),
+                                 range: range)
+        }
+        if let index = currentMatch, index < matches.count, NSMaxRange(matches[index]) <= storage.length {
+            let range = matches[index]
+            storage.addAttribute(.backgroundColor,
+                                 value: NSColor.systemOrange.withAlphaComponent(0.75),
+                                 range: range)
+            textView.scrollRangeToVisible(range)
         }
     }
 }
