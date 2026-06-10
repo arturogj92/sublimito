@@ -74,6 +74,15 @@ struct SublimitoCommands: Commands {
             }
             .keyboardShortcut("b", modifiers: .command)
             Divider()
+            Toggle("Ajuste de línea", isOn: Binding(
+                get: { state.wordWrap },
+                set: { state.wordWrap = $0 }
+            ))
+            Toggle("Números de línea", isOn: Binding(
+                get: { state.showLineNumbers },
+                set: { state.showLineNumbers = $0 }
+            ))
+            Divider()
             Button("Aumentar fuente") { state.fontSize = min(32, state.fontSize + 1) }
                 .keyboardShortcut("+", modifiers: .command)
             Button("Reducir fuente") { state.fontSize = max(9, state.fontSize - 1) }

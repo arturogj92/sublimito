@@ -4,6 +4,8 @@ import AppKit
 struct EditorTextView: NSViewRepresentable {
     @ObservedObject var buffer: Buffer
     let fontSize: CGFloat
+    let wordWrap: Bool
+    let showLineNumbers: Bool
 
     func makeCoordinator() -> Coordinator { Coordinator() }
 
@@ -56,6 +58,11 @@ struct EditorTextView: NSViewRepresentable {
         if textView.font?.pointSize != fontSize {
             textView.font = .monospacedSystemFont(ofSize: fontSize, weight: .regular)
         }
+        if coordinator.wordWrapApplied != wordWrap {
+            coordinator.wordWrapApplied = wordWrap
+            Self.applyWrapMode(wordWrap, scrollView: scrollView, textView: textView)
+        }
+        scrollView.rulersVisible = showLineNumbers
         coordinator.ruler?.needsDisplay = true
         if bufferChanged {
             DispatchQueue.main.async {
@@ -74,11 +81,32 @@ struct EditorTextView: NSViewRepresentable {
         }
     }
 
+    static func applyWrapMode(_ wrap: Bool, scrollView: NSScrollView, textView: NSTextView) {
+        let huge = CGFloat.greatestFiniteMagnitude
+        if wrap {
+            scrollView.hasHorizontalScroller = false
+            textView.isHorizontallyResizable = false
+            textView.autoresizingMask = [.width]
+            textView.textContainer?.containerSize = NSSize(width: scrollView.contentSize.width, height: huge)
+            textView.textContainer?.widthTracksTextView = true
+            textView.frame.size.width = scrollView.contentSize.width
+        } else {
+            scrollView.hasHorizontalScroller = true
+            textView.isHorizontallyResizable = true
+            textView.autoresizingMask = []
+            textView.maxSize = NSSize(width: huge, height: huge)
+            textView.textContainer?.widthTracksTextView = false
+            textView.textContainer?.containerSize = NSSize(width: huge, height: huge)
+        }
+        textView.needsLayout = true
+    }
+
     final class Coordinator: NSObject, NSTextViewDelegate {
         weak var textView: NSTextView?
         weak var ruler: LineNumberRulerView?
         var buffer: Buffer?
         var isProgrammaticChange = false
+        var wordWrapApplied: Bool?
 
         func textDidChange(_ notification: Notification) {
             guard !isProgrammaticChange, let textView, let buffer else { return }

@@ -58,7 +58,8 @@ private struct BufferContainerView: View {
                 MarkdownPreviewView(buffer: buffer)
                     .overlay(alignment: .topTrailing) { copyRawButton }
             } else {
-                EditorTextView(buffer: buffer, fontSize: state.fontSize)
+                EditorTextView(buffer: buffer, fontSize: state.fontSize,
+                               wordWrap: state.wordWrap, showLineNumbers: state.showLineNumbers)
             }
             Divider()
             StatusBarView(buffer: buffer)

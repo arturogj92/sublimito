@@ -48,6 +48,12 @@ final class AppState: ObservableObject {
     @Published var fontSize: CGFloat {
         didSet { UserDefaults.standard.set(Double(fontSize), forKey: "fontSize") }
     }
+    @Published var wordWrap: Bool {
+        didSet { UserDefaults.standard.set(wordWrap, forKey: "wordWrap") }
+    }
+    @Published var showLineNumbers: Bool {
+        didSet { UserDefaults.standard.set(showLineNumbers, forKey: "showLineNumbers") }
+    }
 
     var activeBuffer: Buffer? { buffers.first { $0.id == activeID } }
 
@@ -89,6 +95,8 @@ final class AppState: ObservableObject {
         sidebarVisible = UserDefaults.standard.object(forKey: "sidebarVisible") as? Bool ?? true
         let storedSize = UserDefaults.standard.double(forKey: "fontSize")
         fontSize = storedSize >= 9 ? CGFloat(storedSize) : 13
+        wordWrap = UserDefaults.standard.object(forKey: "wordWrap") as? Bool ?? true
+        showLineNumbers = UserDefaults.standard.object(forKey: "showLineNumbers") as? Bool ?? true
         try? FileManager.default.createDirectory(at: Self.draftsDirectory, withIntermediateDirectories: true)
         restore()
         if buffers.isEmpty { newBuffer() }
