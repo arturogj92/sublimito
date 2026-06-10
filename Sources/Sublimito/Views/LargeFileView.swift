@@ -4,6 +4,16 @@ import AppKit
 /// Visor de ficheros enormes: lee por ventanas con el fichero mapeado en memoria,
 /// sin cargarlo entero jamás. Solo lectura. Una única barra de búsqueda (abajo)
 /// que busca en el fichero completo por streaming y resalta lo visible.
+/// Flag de cancelación compartida entre el task y los workers de concurrentPerform.
+final class CancelFlag: @unchecked Sendable {
+    private let lock = NSLock()
+    private var value = false
+    var cancelled: Bool {
+        get { lock.lock(); defer { lock.unlock() }; return value }
+        set { lock.lock(); value = newValue; lock.unlock() }
+    }
+}
+
 @MainActor
 final class LargeFileModel: ObservableObject {
     let url: URL
@@ -122,10 +132,15 @@ final class LargeFileModel: ObservableObject {
         guard !query.isEmpty, let data else { counting = false; return }
         counting = true
         let needle = Array(query.lowercased().utf8).map { $0 | 0x20 }
-        countTask = Task.detached(priority: .utility) { [weak self] in
-            try? await Task.sleep(nanoseconds: 500_000_000) // debounce mientras escribe
+        countTask = Task.detached(priority: .userInitiated) { [weak self] in
+            try? await Task.sleep(nanoseconds: 400_000_000) // debounce mientras escribe
             if Task.isCancelled { return }
-            let total = Self.countOccurrences(data: data, needle: needle)
+            let flag = CancelFlag()
+            let total = await withTaskCancellationHandler {
+                Self.countOccurrences(data: data, needle: needle, cancel: flag)
+            } onCancel: {
+                flag.cancelled = true
+            }
             if Task.isCancelled { return }
             await MainActor.run { [weak self] in
                 guard let self, !Task.isCancelled else { return }
@@ -135,35 +150,61 @@ final class LargeFileModel: ObservableObject {
         }
     }
 
-    /// Escaneo completo con memchr sobre el primer byte (rápido para GB).
-    nonisolated private static func countOccurrences(data: Data, needle: [UInt8]) -> Int? {
+    /// Conteo paralelo: el fichero se parte en un trozo por core y cada trozo se
+    /// escanea con memchr memoizado (cada variante de byte se recorre una sola vez).
+    nonisolated private static func countOccurrences(data: Data, needle: [UInt8], cancel: CancelFlag) -> Int? {
         let n = needle.count
         guard n > 0, data.count >= n else { return 0 }
+        let cores = max(1, min(ProcessInfo.processInfo.activeProcessorCount, 16))
+        let chunkSize = max(Self.windowSize, (data.count + cores - 1) / cores)
+        let chunks = (data.count + chunkSize - 1) / chunkSize
+        var partials = [Int?](repeating: 0, count: chunks)
+        partials.withUnsafeMutableBufferPointer { results in
+            let resultsPtr = UnsafeMutableBufferPointer(rebasing: results[0..<chunks])
+            DispatchQueue.concurrentPerform(iterations: chunks) { k in
+                let start = k * chunkSize
+                let end = min(data.count, start + chunkSize)
+                // El trozo se extiende n-1 bytes para pillar coincidencias que cruzan el borde,
+                // pero solo cuentan las que EMPIEZAN dentro del trozo.
+                let scanEnd = min(data.count, end + n - 1)
+                resultsPtr[k] = countInRange(data: data, needle: needle,
+                                             from: start, startLimit: end, scanEnd: scanEnd,
+                                             cancel: cancel)
+            }
+        }
+        var total = 0
+        for value in partials {
+            guard let value else { return nil }
+            total += value
+        }
+        return total
+    }
+
+    nonisolated private static func countInRange(data: Data, needle: [UInt8], from: Int,
+                                                 startLimit: Int, scanEnd: Int,
+                                                 cancel: CancelFlag) -> Int? {
+        let n = needle.count
         return data.withUnsafeBytes { (raw: UnsafeRawBufferPointer) -> Int? in
             guard let base = raw.baseAddress else { return 0 }
             let bytes = raw.bindMemory(to: UInt8.self)
-            let limit = raw.count - n
             let lower = needle[0]
-            // Ambas variantes del byte plegado (cubre letras y símbolos como @ vs `)
             let upper = lower & ~0x20
             var count = 0
-            var i = 0
-            var lastCancelCheck = 0
-            while i <= limit {
-                // Candidato más cercano del primer byte (variantes mayúscula y minúscula)
-                let remaining = raw.count - i
-                let posLower = memchr(base + i, Int32(lower), remaining)
-                let posUpper = memchr(base + i, Int32(upper), remaining)
-                var candidate: Int
-                switch (posLower, posUpper) {
-                case (nil, nil): return count
-                case (let l?, nil): candidate = base.distance(to: UnsafeRawPointer(l))
-                case (nil, let u?): candidate = base.distance(to: UnsafeRawPointer(u))
-                case (let l?, let u?):
-                    candidate = min(base.distance(to: UnsafeRawPointer(l)),
-                                    base.distance(to: UnsafeRawPointer(u)))
+            var i = from
+            var nextLower = -1   // -1 = pendiente de calcular, Int.max = agotada
+            var nextUpper = -1
+            var sinceCheck = 0
+            while i < startLimit {
+                if nextLower != Int.max && nextLower < i {
+                    let p = memchr(base + i, Int32(lower), scanEnd - i)
+                    nextLower = p.map { base.distance(to: UnsafeRawPointer($0)) } ?? Int.max
                 }
-                if candidate > limit { return count }
+                if nextUpper != Int.max && nextUpper < i {
+                    let p = memchr(base + i, Int32(upper), scanEnd - i)
+                    nextUpper = p.map { base.distance(to: UnsafeRawPointer($0)) } ?? Int.max
+                }
+                let candidate = min(nextLower, nextUpper)
+                if candidate == Int.max || candidate >= startLimit || candidate + n > scanEnd { break }
                 var match = true
                 for j in 1..<n where (bytes[candidate + j] | 0x20) != needle[j] {
                     match = false
@@ -175,9 +216,10 @@ final class LargeFileModel: ObservableObject {
                 } else {
                     i = candidate + 1
                 }
-                if i - lastCancelCheck > 8_000_000 {
-                    lastCancelCheck = i
-                    if Task.isCancelled { return nil }
+                sinceCheck += 1
+                if sinceCheck >= 200_000 {
+                    sinceCheck = 0
+                    if cancel.cancelled { return nil }
                 }
             }
             return count
@@ -252,10 +294,25 @@ final class LargeFileModel: ObservableObject {
             }
 
             if forward {
+                guard let baseAddr = raw.baseAddress else { return nil }
+                let lower = needle[0]
+                let upper = lower & ~0x20
                 var i = max(0, from)
+                var nextLower = -1
+                var nextUpper = -1
                 while i <= limit {
-                    if matches(at: i) { return i }
-                    i += 1
+                    if nextLower != Int.max && nextLower < i {
+                        let p = memchr(baseAddr + i, Int32(lower), bytes.count - i)
+                        nextLower = p.map { baseAddr.distance(to: UnsafeRawPointer($0)) } ?? Int.max
+                    }
+                    if nextUpper != Int.max && nextUpper < i {
+                        let p = memchr(baseAddr + i, Int32(upper), bytes.count - i)
+                        nextUpper = p.map { baseAddr.distance(to: UnsafeRawPointer($0)) } ?? Int.max
+                    }
+                    let candidate = min(nextLower, nextUpper)
+                    if candidate == Int.max || candidate > limit { return nil }
+                    if matches(at: candidate) { return candidate }
+                    i = candidate + 1
                 }
             } else {
                 var i = min(from, limit)
