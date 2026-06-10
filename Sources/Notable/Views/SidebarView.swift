@@ -51,6 +51,13 @@ private struct OpenBufferRow: View {
                     .focused($nameFieldFocused)
                     .onSubmit { state.rename(buffer, to: draftName) }
                     .onExitCommand { state.renamingID = nil }
+                    .onChange(of: nameFieldFocused) { _, focused in
+                        // Al perder el foco sin Enter ni Escape, confirma y desarma
+                        // el campo (si no, se queda pegado y secuestra el siguiente clic).
+                        if !focused && state.renamingID == buffer.id {
+                            state.rename(buffer, to: draftName)
+                        }
+                    }
                     .onAppear {
                         draftName = buffer.name
                         nameFieldFocused = true
