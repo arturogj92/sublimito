@@ -112,6 +112,9 @@ struct SublimitoCommands: Commands {
             Button("Pestaña anterior") { state.selectRelative(-1) }
                 .keyboardShortcut("[", modifiers: [.command, .shift])
         }
-        CommandGroup(replacing: .help) {}
+        CommandGroup(replacing: .help) {
+            Button("Atajos de teclado") { state.shortcutsShown = true }
+                .keyboardShortcut("?", modifiers: .command)
+        }
     }
 }

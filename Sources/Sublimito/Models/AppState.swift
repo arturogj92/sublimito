@@ -33,6 +33,7 @@ final class AppState: ObservableObject {
     @Published var activeID: UUID?
     @Published var recents: [RecentEntry] = []
     @Published var quickOpenShown = false
+    @Published var shortcutsShown = false
     @Published var renamingID: UUID?
 
     struct PendingSelection {

@@ -16,6 +16,10 @@ struct ContentView: View {
         .overlay {
             if state.quickOpenShown { QuickOpenView() }
         }
+        .sheet(isPresented: $state.shortcutsShown) {
+            ShortcutsView()
+                .environmentObject(state)
+        }
         .onDrop(of: [.fileURL], isTargeted: nil) { providers in
             for provider in providers {
                 _ = provider.loadObject(ofClass: URL.self) { url, _ in
