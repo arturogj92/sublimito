@@ -53,16 +53,10 @@ final class LargeFileModel: ObservableObject {
 
     var matchCounter: String {
         guard !query.isEmpty else { return "" }
-        var parts: [String] = []
-        if windowMatches.isEmpty {
-            parts.append("0 in view")
-        } else {
-            parts.append("\((currentMatch ?? 0) + 1) of \(windowMatches.count) in view")
-        }
         if let total = globalCount {
-            parts.append("\(Self.formatCount(total)) in file")
+            return total == 0 ? "No matches" : "\(Self.formatCount(total)) matches"
         }
-        return parts.joined(separator: "  ·  ")
+        return counting ? "Counting…" : ""
     }
 
     static func formatCount(_ n: Int) -> String {
@@ -347,11 +341,11 @@ struct LargeFileView: View {
         VStack(spacing: 0) {
             controls
             Divider()
+            searchBar
+            Divider()
             LargeFileTextView(text: model.text,
                               matches: model.windowMatches,
                               currentMatch: model.currentMatch)
-            Divider()
-            searchBar
         }
         .onChange(of: state.largeFileFindRequest) { _, _ in
             searchFocused = true
