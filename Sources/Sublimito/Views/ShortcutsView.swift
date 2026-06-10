@@ -19,6 +19,7 @@ struct ShortcutsView: View {
         Group(title: "Files & Notes", items: [
             Shortcut(keys: "⌘N", detail: "New note (auto-backed up, never lost)"),
             Shortcut(keys: "⌘O", detail: "Open file"),
+            Shortcut(keys: "⇧⌘O", detail: "Open folder as project"),
             Shortcut(keys: "⌘S", detail: "Save"),
             Shortcut(keys: "⇧⌘S", detail: "Save As…"),
             Shortcut(keys: "⌘W", detail: "Close tab (no dialogs, recoverable from Recents)"),
@@ -30,8 +31,15 @@ struct ShortcutsView: View {
             Shortcut(keys: "⌥⌘F", detail: "Find and replace"),
             Shortcut(keys: "⌘G", detail: "Find Next"),
             Shortcut(keys: "⇧⌘G", detail: "Find Previous"),
-            Shortcut(keys: "⌘E", detail: "Use Selection for Find"),
+            Shortcut(keys: "⇧⌘F", detail: "Find in files (open tabs, folder or everything)"),
             Shortcut(keys: "⌘P", detail: "Go to tab, recent, or search by content"),
+        ]),
+        Group(title: "Editing", items: [
+            Shortcut(keys: "⌘D", detail: "Add next occurrence to selection (multi-cursor)"),
+            Shortcut(keys: "⌥ Click", detail: "Add cursor (multi-cursor)"),
+            Shortcut(keys: "⌥⌘↑ / ↓", detail: "Add cursor above / below"),
+            Shortcut(keys: "⌃G", detail: "Go to line"),
+            Shortcut(keys: "⌥⌘[ / ]", detail: "Fold / unfold code block"),
         ]),
         Group(title: "View", items: [
             Shortcut(keys: "⇧⌘P", detail: "Toggle Markdown preview / raw text"),

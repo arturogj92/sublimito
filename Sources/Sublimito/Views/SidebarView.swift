@@ -19,6 +19,11 @@ struct SidebarView: View {
                     OpenBufferRow(buffer: buffer)
                 }
             }
+            if let folder = state.folderURL {
+                Section(folder.lastPathComponent) {
+                    FolderTreeView(root: folder)
+                }
+            }
             if !state.visibleRecents.isEmpty {
                 Section("Recent") {
                     ForEach(state.visibleRecents) { entry in
@@ -81,6 +86,7 @@ private struct OpenBufferRow: View {
             state.activeID = buffer.id
         })
         .overlay(MiddleClickCatcher { state.close(buffer) })
+        .pointingHandCursor()
         .listRowBackground(isActive ? Color.accentColor.opacity(0.18) : Color.clear)
         .contextMenu {
             Button(buffer.isPinned ? "Unpin" : "Pin") { state.togglePin(buffer) }
@@ -127,6 +133,7 @@ private struct RecentRow: View {
             Spacer()
         }
         .contentShape(Rectangle())
+        .pointingHandCursor()
         .onTapGesture { state.reopenRecent(entry) }
         .contextMenu {
             Button("Open") { state.reopenRecent(entry) }

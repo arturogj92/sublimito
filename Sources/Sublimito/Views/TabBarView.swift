@@ -76,6 +76,7 @@ private struct TabItemView: View {
             state.activeID = buffer.id
         })
         .overlay(MiddleClickCatcher { state.close(buffer) })
+        .pointingHandCursor()
         .onHover { hovering = $0 }
         .contextMenu {
             Button(buffer.isPinned ? "Unpin" : "Pin") { state.togglePin(buffer) }

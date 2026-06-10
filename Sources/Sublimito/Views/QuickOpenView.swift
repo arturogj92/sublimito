@@ -164,6 +164,7 @@ struct QuickOpenView: View {
                             .padding(.vertical, 6)
                             .background(index == selection ? Color.accentColor.opacity(0.22) : Color.clear)
                             .contentShape(Rectangle())
+                            .pointingHandCursor()
                             .onTapGesture { open(item) }
                         }
                     }

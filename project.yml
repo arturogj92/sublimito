@@ -12,6 +12,9 @@ targets:
       - path: Sources/Sublimito
       - path: Resources
         buildPhase: resources
+      - path: monaco
+        type: folder
+        buildPhase: resources
     info:
       path: Sources/Sublimito/Info.plist
       properties:

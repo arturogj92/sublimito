@@ -18,6 +18,10 @@ final class Buffer: ObservableObject, Identifiable {
     @Published var isPreview: Bool = false
     @Published var externalState: ExternalState = .none
 
+    /// Ficheros enormes: se abren en el visor por streaming, sin cargar el contenido.
+    var isLargeFile = false
+    var fileSize: UInt64 = 0
+
     /// Contenido del fichero en disco la última vez que se leyó o guardó. nil para buffers temporales.
     var lastDiskContent: String?
     /// Contenido pendiente de disco cuando hay conflicto.
@@ -43,7 +47,7 @@ final class Buffer: ObservableObject, Identifiable {
 
     /// Un buffer necesita draft si es temporal o si tiene cambios sin guardar sobre su fichero.
     var needsDraft: Bool {
-        fileURL == nil || isDirty
+        !isLargeFile && (fileURL == nil || isDirty)
     }
 
     var draftURL: URL {

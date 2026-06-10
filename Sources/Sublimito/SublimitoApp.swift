@@ -50,6 +50,11 @@ struct SublimitoCommands: Commands {
                 .keyboardShortcut("n", modifiers: .command)
             Button("Open…") { state.openWithPanel() }
                 .keyboardShortcut("o", modifiers: .command)
+            Button("Open Folder…") { state.openFolderWithPanel() }
+                .keyboardShortcut("o", modifiers: [.command, .shift])
+            if state.folderURL != nil {
+                Button("Close Folder") { state.closeFolder() }
+            }
         }
         CommandGroup(replacing: .saveItem) {
             Button("Save") { state.saveActive() }
@@ -67,18 +72,19 @@ struct SublimitoCommands: Commands {
         CommandGroup(after: .pasteboard) {
             Divider()
             Menu("Find") {
-                Button("Find…") { FindActions.send(.showFindInterface) }
+                Button("Find…") { FindActions.send(.find) }
                     .keyboardShortcut("f", modifiers: .command)
-                Button("Find & Replace…") { FindActions.send(.showReplaceInterface) }
+                Button("Find & Replace…") { FindActions.send(.findReplace) }
                     .keyboardShortcut("f", modifiers: [.command, .option])
                 Divider()
-                Button("Find Next") { FindActions.send(.nextMatch) }
+                Button("Find Next") { FindActions.send(.findNext) }
                     .keyboardShortcut("g", modifiers: .command)
-                Button("Find Previous") { FindActions.send(.previousMatch) }
+                Button("Find Previous") { FindActions.send(.findPrev) }
                     .keyboardShortcut("g", modifiers: [.command, .shift])
                 Divider()
-                Button("Use Selection for Find") { FindActions.send(.setSearchString) }
-                    .keyboardShortcut("e", modifiers: .command)
+                Divider()
+                Button("Find in Files…") { state.findInFilesShown = true }
+                    .keyboardShortcut("f", modifiers: [.command, .shift])
             }
         }
         CommandMenu("View") {
@@ -98,6 +104,10 @@ struct SublimitoCommands: Commands {
             Toggle("Line Numbers", isOn: Binding(
                 get: { state.showLineNumbers },
                 set: { state.showLineNumbers = $0 }
+            ))
+            Toggle("Minimap", isOn: Binding(
+                get: { state.minimapVisible },
+                set: { state.minimapVisible = $0 }
             ))
             Divider()
             Button("Increase Font Size") { state.fontSize = min(32, state.fontSize + 1) }

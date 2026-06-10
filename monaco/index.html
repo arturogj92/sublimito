@@ -1,0 +1,128 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  html, body, #container { margin: 0; padding: 0; height: 100%; width: 100%; overflow: hidden; }
+  body { background: #ffffff; }
+  @media (prefers-color-scheme: dark) { body { background: #1e1e1e; } }
+</style>
+</head>
+<body>
+<div id="container"></div>
+<script src="vs/loader.js"></script>
+<script>
+require.config({ paths: { vs: 'vs' } });
+
+let editor = null;
+let currentId = null;
+let suppress = false;
+const models = {};
+let changeTimer = null;
+
+function post(msg) {
+  window.webkit.messageHandlers.bridge.postMessage(msg);
+}
+
+function systemTheme() {
+  return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'vs-dark' : 'vs';
+}
+
+require(['vs/editor/editor.main'], function () {
+  editor = monaco.editor.create(document.getElementById('container'), {
+    theme: systemTheme(),
+    automaticLayout: true,
+    fontSize: 13,
+    fontFamily: 'Menlo, Monaco, monospace',
+    minimap: { enabled: true },
+    wordWrap: 'on',
+    lineNumbers: 'on',
+    dragAndDrop: false,
+    scrollBeyondLastLine: false,
+    occurrencesHighlight: 'singleFile',
+    unicodeHighlight: { ambiguousCharacters: false },
+    model: null
+  });
+
+  window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
+    monaco.editor.setTheme(systemTheme());
+  });
+
+  editor.onDidChangeModelContent(() => {
+    if (suppress || !currentId) return;
+    const id = currentId;
+    const model = editor.getModel();
+    if (!model) return;
+    clearTimeout(changeTimer);
+    changeTimer = setTimeout(() => {
+      if (currentId === id && editor.getModel() === model) {
+        post({ type: 'change', id: id, text: model.getValue() });
+      }
+    }, 250);
+  });
+
+  post({ type: 'ready' });
+});
+
+window.api = {
+  openBuffer(id, name, text) {
+    if (!editor) return;
+    let model = models[id];
+    if (!model) {
+      let uri = null;
+      try { uri = monaco.Uri.file('/buffers/' + id + '/' + name); } catch (e) { uri = null; }
+      model = monaco.editor.createModel(text, undefined, uri);
+      models[id] = model;
+    }
+    currentId = id;
+    editor.setModel(model);
+    editor.focus();
+  },
+  setText(id, text) {
+    const model = models[id];
+    if (model && model.getValue() !== text) {
+      suppress = true;
+      // Reemplazo via pushEditOperations para no destrozar la pila de undo entera
+      model.pushEditOperations([], [{ range: model.getFullModelRange(), text: text }], () => null);
+      suppress = false;
+    }
+  },
+  flushPending() {
+    // Fuerza el envío del cambio pendiente (antes de cerrar o guardar)
+    clearTimeout(changeTimer);
+    if (currentId && editor && editor.getModel()) {
+      post({ type: 'change', id: currentId, text: editor.getModel().getValue() });
+    }
+  },
+  closeBuffer(id) {
+    const model = models[id];
+    if (model) {
+      if (editor && editor.getModel() === model) { currentId = null; editor.setModel(null); }
+      model.dispose();
+      delete models[id];
+    }
+  },
+  setOptions(opts) {
+    if (editor) editor.updateOptions(opts);
+  },
+  find() { editor && editor.getAction('actions.find').run(); },
+  findReplace() { editor && editor.getAction('editor.action.startFindReplaceAction').run(); },
+  findNext() { editor && editor.getAction('editor.action.nextMatchFindAction').run(); },
+  findPrev() { editor && editor.getAction('editor.action.previousMatchFindAction').run(); },
+  gotoOffset(offset, length) {
+    if (!editor) return;
+    const model = editor.getModel();
+    if (!model) return;
+    const start = model.getPositionAt(offset);
+    const end = model.getPositionAt(offset + length);
+    const range = { startLineNumber: start.lineNumber, startColumn: start.column,
+                    endLineNumber: end.lineNumber, endColumn: end.column };
+    editor.setSelection(range);
+    editor.revealRangeInCenter(range);
+    editor.focus();
+  },
+  focus() { editor && editor.focus(); }
+};
+</script>
+</body>
+</html>

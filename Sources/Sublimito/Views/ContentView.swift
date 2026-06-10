@@ -15,6 +15,9 @@ struct ContentView: View {
         .overlay {
             if state.quickOpenShown { QuickOpenView() }
         }
+        .overlay {
+            if state.findInFilesShown { FindInFilesView() }
+        }
         .sheet(isPresented: $state.shortcutsShown) {
             ShortcutsView()
                 .environmentObject(state)
@@ -46,7 +49,6 @@ struct ContentView: View {
             Divider()
             if let buffer = state.activeBuffer {
                 BufferContainerView(buffer: buffer)
-                    .id(buffer.id)
             } else {
                 Spacer()
                 Text("Cmd+N to create a note")
@@ -64,12 +66,14 @@ private struct BufferContainerView: View {
     var body: some View {
         VStack(spacing: 0) {
             banner
-            if buffer.isPreview {
+            if buffer.isLargeFile {
+                LargeFileView(buffer: buffer)
+                    .id(buffer.id)
+            } else if buffer.isPreview {
                 MarkdownPreviewView(buffer: buffer)
                     .overlay(alignment: .topTrailing) { copyRawButton }
             } else {
-                EditorTextView(buffer: buffer, fontSize: state.fontSize,
-                               wordWrap: state.wordWrap, showLineNumbers: state.showLineNumbers)
+                MonacoEditorView(buffer: buffer)
             }
             Divider()
             StatusBarView(buffer: buffer)
@@ -158,7 +162,17 @@ private struct StatusBarView: View {
 
     var body: some View {
         HStack(spacing: 14) {
-            if let url = buffer.fileURL {
+            if buffer.isLargeFile {
+                if let url = buffer.fileURL {
+                    Button(action: { state.showInFinder(buffer) }) {
+                        Text(url.path).lineLimit(1).truncationMode(.head)
+                    }
+                    .buttonStyle(.plain)
+                    .help("Show in Finder")
+                }
+                Spacer()
+                Text(LargeFileModel.format(buffer.fileSize))
+            } else if let url = buffer.fileURL {
                 Button(action: { state.showInFinder(buffer) }) {
                     Text(url.path)
                         .lineLimit(1)
@@ -169,18 +183,20 @@ private struct StatusBarView: View {
             } else {
                 Label("Temporary note, backed up automatically", systemImage: "internaldrive")
             }
-            Spacer()
-            Text("\(lines) lines")
-            Text("\(words) words")
-            Text("\(buffer.content.count) characters")
-            Button(action: { state.togglePreview() }) {
-                Label(buffer.isPreview ? "Edit" : "Markdown",
-                      systemImage: buffer.isPreview ? "pencil" : "eye")
-                    .font(.system(size: 11))
+            if !buffer.isLargeFile {
+                Spacer()
+                Text("\(lines) lines")
+                Text("\(words) words")
+                Text("\(buffer.content.count) characters")
+                Button(action: { state.togglePreview() }) {
+                    Label(buffer.isPreview ? "Edit" : "Markdown",
+                          systemImage: buffer.isPreview ? "pencil" : "eye")
+                        .font(.system(size: 11))
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(Color.accentColor)
+                .help("Toggle Markdown preview (Cmd+Shift+P)")
             }
-            .buttonStyle(.plain)
-            .foregroundStyle(Color.accentColor)
-            .help("Toggle Markdown preview (Cmd+Shift+P)")
         }
         .font(.system(size: 11))
         .foregroundStyle(.secondary)

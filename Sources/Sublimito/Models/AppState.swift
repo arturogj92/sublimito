@@ -18,6 +18,7 @@ private struct BufferMeta: Codable {
     var name: String
     var isPinned: Bool
     var isPreview: Bool
+    var isLarge: Bool?
 }
 
 private struct SessionData: Codable {
@@ -55,6 +56,16 @@ final class AppState: ObservableObject {
     @Published var showLineNumbers: Bool {
         didSet { UserDefaults.standard.set(showLineNumbers, forKey: "showLineNumbers") }
     }
+    @Published var minimapVisible: Bool {
+        didSet { UserDefaults.standard.set(minimapVisible, forKey: "minimapVisible") }
+    }
+    @Published var findInFilesShown = false
+    @Published var folderURL: URL? {
+        didSet { UserDefaults.standard.set(folderURL?.path, forKey: "folderPath") }
+    }
+
+    /// Por encima de este tamaño los ficheros se abren en el visor por streaming.
+    static let largeFileThreshold: UInt64 = 10_000_000
 
     var activeBuffer: Buffer? { buffers.first { $0.id == activeID } }
 
@@ -98,6 +109,11 @@ final class AppState: ObservableObject {
         fontSize = storedSize >= 9 ? CGFloat(storedSize) : 13
         wordWrap = UserDefaults.standard.object(forKey: "wordWrap") as? Bool ?? true
         showLineNumbers = UserDefaults.standard.object(forKey: "showLineNumbers") as? Bool ?? true
+        minimapVisible = UserDefaults.standard.object(forKey: "minimapVisible") as? Bool ?? true
+        if let folderPath = UserDefaults.standard.string(forKey: "folderPath"),
+           FileManager.default.fileExists(atPath: folderPath) {
+            folderURL = URL(fileURLWithPath: folderPath)
+        }
         try? FileManager.default.createDirectory(at: Self.draftsDirectory, withIntermediateDirectories: true)
         restore()
         if buffers.isEmpty { newBuffer() }
@@ -133,6 +149,17 @@ final class AppState: ObservableObject {
         let url = rawURL.standardizedFileURL
         if let existing = buffers.first(where: { $0.fileURL?.path == url.path }) {
             activeID = existing.id
+            return
+        }
+        let size = (try? FileManager.default.attributesOfItem(atPath: url.path)[.size] as? UInt64) ?? 0
+        if size > Self.largeFileThreshold {
+            let buffer = Buffer(fileURL: url, name: url.lastPathComponent, content: "")
+            buffer.isLargeFile = true
+            buffer.fileSize = size
+            buffers.append(buffer)
+            activeID = buffer.id
+            addRecent(for: buffer)
+            persistSessionSoon()
             return
         }
         guard let disk = Self.readText(at: url) else {
@@ -214,6 +241,8 @@ final class AppState: ObservableObject {
     func saveActiveAs() { if let b = activeBuffer { saveAs(b) } }
 
     func save(_ buffer: Buffer) {
+        guard !buffer.isLargeFile else { return }
+        MonacoController.shared.flushPendingEdits()
         guard let url = buffer.fileURL else {
             saveAs(buffer)
             return
@@ -266,6 +295,7 @@ final class AppState: ObservableObject {
     func closeActive() { if let b = activeBuffer { close(b) } }
 
     func close(_ buffer: Buffer) {
+        MonacoController.shared.closeBuffer(buffer.id)
         buffer.watcher?.stop()
         buffer.watcher = nil
         autosaveWork[buffer.id]?.cancel()
@@ -327,7 +357,7 @@ final class AppState: ObservableObject {
     // MARK: - Cambios externos
 
     private func watch(_ buffer: Buffer) {
-        guard let url = buffer.fileURL else { return }
+        guard let url = buffer.fileURL, !buffer.isLargeFile else { return }
         buffer.watcher = FileWatcher(url: url) { [weak self, weak buffer] in
             guard let self, let buffer else { return }
             self.handleExternalEvent(buffer)
@@ -406,6 +436,22 @@ final class AppState: ObservableObject {
         if let url { NSWorkspace.shared.activateFileViewerSelecting([url]) }
     }
 
+    // MARK: - Carpeta de proyecto
+
+    func openFolderWithPanel() {
+        let panel = NSOpenPanel()
+        panel.canChooseFiles = false
+        panel.canChooseDirectories = true
+        panel.allowsMultipleSelection = false
+        if panel.runModal() == .OK, let url = panel.url {
+            folderURL = url.standardizedFileURL
+        }
+    }
+
+    func closeFolder() {
+        folderURL = nil
+    }
+
     // MARK: - Recientes
 
     private func addRecent(for buffer: Buffer, closing: Bool = false) {
@@ -437,7 +483,7 @@ final class AppState: ObservableObject {
     private func persistSessionNow() {
         let metas = buffers.map {
             BufferMeta(id: $0.id, path: $0.fileURL?.path, name: $0.name,
-                       isPinned: $0.isPinned, isPreview: $0.isPreview)
+                       isPinned: $0.isPinned, isPreview: $0.isPreview, isLarge: $0.isLargeFile)
         }
         let data = SessionData(buffers: metas, activeID: activeID)
         if let encoded = try? JSONEncoder().encode(data) {
@@ -461,6 +507,16 @@ final class AppState: ObservableObject {
         guard let data = try? Data(contentsOf: Self.sessionURL),
               let session = try? JSONDecoder().decode(SessionData.self, from: data) else { return }
         for meta in session.buffers {
+            if meta.isLarge == true, let path = meta.path {
+                let url = URL(fileURLWithPath: path)
+                guard let size = try? FileManager.default.attributesOfItem(atPath: path)[.size] as? UInt64 else { continue }
+                let buffer = Buffer(id: meta.id, fileURL: url, name: meta.name, content: "",
+                                    isPinned: meta.isPinned)
+                buffer.isLargeFile = true
+                buffer.fileSize = size
+                buffers.append(buffer)
+                continue
+            }
             let draftURL = Self.draftsDirectory.appendingPathComponent(meta.id.uuidString + ".txt")
             let draft = Self.readText(at: draftURL)
             var fileURL: URL?
