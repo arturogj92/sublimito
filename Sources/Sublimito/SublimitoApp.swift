@@ -1,20 +1,56 @@
 import SwiftUI
 import AppKit
+import Sparkle
 
 @main
 struct SublimitoApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
     @StateObject private var state = AppState.shared
+    private let updaterController = SPUStandardUpdaterController(
+        startingUpdater: true,
+        updaterDelegate: nil,
+        userDriverDelegate: nil
+    )
 
     var body: some Scene {
         Window("Sublimito", id: "main") {
             ContentView()
                 .environmentObject(state)
         }
+        // Sin esto, SwiftUI re-presenta la ventana (close + reopen visible) al recibir
+        // el evento de abrir documento; los ficheros ya los gestiona el AppDelegate.
+        .handlesExternalEvents(matching: [])
         .windowToolbarStyle(.unified)
         .commands {
+            CommandGroup(after: .appInfo) {
+                CheckForUpdatesView(updater: updaterController.updater)
+            }
             SublimitoCommands(state: state)
         }
+    }
+}
+
+struct CheckForUpdatesView: View {
+    @ObservedObject private var viewModel: CheckForUpdatesViewModel
+    private let updater: SPUUpdater
+
+    init(updater: SPUUpdater) {
+        self.updater = updater
+        self.viewModel = CheckForUpdatesViewModel(updater: updater)
+    }
+
+    var body: some View {
+        Button("Check for Updates…", action: updater.checkForUpdates)
+            .disabled(!viewModel.canCheckForUpdates)
+    }
+}
+
+final class CheckForUpdatesViewModel: ObservableObject {
+    @Published var canCheckForUpdates = false
+
+    init(updater: SPUUpdater) {
+        updater.publisher(for: \.canCheckForUpdates)
+            .assign(to: &$canCheckForUpdates)
     }
 }
 
@@ -24,11 +60,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     // Ficheros abiertos desde Finder, dock o "Abrir con": siempre a la ventana única.
+    // LaunchServices ya activa la app en aperturas iniciadas por el usuario; cualquier
+    // activate() extra aquí interfiere con ese traspaso y rebota la ventana.
     func application(_ application: NSApplication, open urls: [URL]) {
         for url in urls {
             AppState.shared.open(url: url)
         }
-        NSApp.activate(ignoringOtherApps: true)
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
@@ -64,6 +101,8 @@ struct SublimitoCommands: Commands {
             Divider()
             Button("Close Tab") { state.closeActive() }
                 .keyboardShortcut("w", modifiers: .command)
+            Button("Reopen Closed Tab") { state.reopenLastClosed() }
+                .keyboardShortcut("t", modifiers: [.command, .shift])
         }
         CommandGroup(replacing: .printItem) {
             Button("Go to Tab or Recent…") { state.quickOpenShown = true }

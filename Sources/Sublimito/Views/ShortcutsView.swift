@@ -23,6 +23,7 @@ struct ShortcutsView: View {
             Shortcut(keys: "⌘S", detail: "Save"),
             Shortcut(keys: "⇧⌘S", detail: "Save As…"),
             Shortcut(keys: "⌘W", detail: "Close tab (no dialogs, recoverable from Recents)"),
+            Shortcut(keys: "⇧⌘T", detail: "Reopen last closed tab"),
             Shortcut(keys: "Middle Click", detail: "Close tab with the mouse wheel, on tabs and in the sidebar"),
             Shortcut(keys: "Double Click", detail: "Rename note or file"),
         ]),

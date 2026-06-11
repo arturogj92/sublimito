@@ -2,6 +2,9 @@ import SwiftUI
 
 struct SidebarView: View {
     @EnvironmentObject var state: AppState
+    @State private var showAllRecents = false
+
+    private static let recentsCollapsedCount = 10
 
     var body: some View {
         let pinned = state.orderedTabs.filter(\.isPinned)
@@ -25,9 +28,25 @@ struct SidebarView: View {
                 }
             }
             if !state.visibleRecents.isEmpty {
+                let recents = state.visibleRecents
                 Section("Recent") {
-                    ForEach(state.visibleRecents) { entry in
+                    ForEach(showAllRecents ? recents : Array(recents.prefix(Self.recentsCollapsedCount))) { entry in
                         RecentRow(entry: entry)
+                    }
+                    if recents.count > Self.recentsCollapsedCount {
+                        HStack(spacing: 6) {
+                            Image(systemName: showAllRecents ? "chevron.up" : "chevron.down")
+                                .font(.system(size: 9, weight: .semibold))
+                                .frame(width: 14)
+                            Text(showAllRecents
+                                 ? "Show Less"
+                                 : "Show All (\(recents.count))")
+                                .font(.system(size: 11))
+                        }
+                        .foregroundStyle(.secondary)
+                        .contentShape(Rectangle())
+                        .pointingHandCursor()
+                        .onTapGesture { showAllRecents.toggle() }
                     }
                 }
             }

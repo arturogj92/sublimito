@@ -36,6 +36,8 @@ final class AppState: ObservableObject {
     @Published var quickOpenShown = false
     @Published var shortcutsShown = false
     @Published var renamingID: UUID?
+    /// Pestaña en pleno arrastre de reordenación (solo runtime).
+    var draggingTabID: UUID?
 
     struct PendingSelection {
         let bufferID: UUID
@@ -104,6 +106,8 @@ final class AppState: ObservableObject {
 
     private var autosaveWork: [UUID: DispatchWorkItem] = [:]
     private var persistWork: DispatchWorkItem?
+    /// Pila de pestañas cerradas en esta sesión, para Reopen Closed Tab (Cmd+Shift+T).
+    private var closedTabHistory: [RecentEntry] = []
 
     private init() {
         sidebarVisible = UserDefaults.standard.object(forKey: "sidebarVisible") as? Bool ?? true
@@ -302,7 +306,8 @@ final class AppState: ObservableObject {
         buffer.watcher = nil
         autosaveWork[buffer.id]?.cancel()
         writeDraftNow(buffer)
-        addRecent(for: buffer, closing: true)
+        let entry = addRecent(for: buffer, closing: true)
+        closedTabHistory.append(entry)
 
         let tabs = orderedTabs
         let closedIndex = tabs.firstIndex { $0.id == buffer.id }
@@ -420,6 +425,19 @@ final class AppState: ObservableObject {
 
     // MARK: - Navegación
 
+    /// Reordena pestañas por arrastre. Solo dentro del mismo grupo (fijadas/no fijadas):
+    /// el orden visual de cada grupo es el orden del array buffers.
+    func moveTab(id draggedID: UUID, to targetID: UUID) {
+        guard draggedID != targetID,
+              let from = buffers.firstIndex(where: { $0.id == draggedID }),
+              let to = buffers.firstIndex(where: { $0.id == targetID }),
+              buffers[from].isPinned == buffers[to].isPinned else { return }
+        withAnimation(.easeInOut(duration: 0.15)) {
+            buffers.move(fromOffsets: IndexSet(integer: from), toOffset: to > from ? to + 1 : to)
+        }
+        persistSessionSoon()
+    }
+
     func selectRelative(_ offset: Int) {
         let tabs = orderedTabs
         guard tabs.count > 1, let current = tabs.firstIndex(where: { $0.id == activeID }) else { return }
@@ -456,7 +474,8 @@ final class AppState: ObservableObject {
 
     // MARK: - Recientes
 
-    private func addRecent(for buffer: Buffer, closing: Bool = false) {
+    @discardableResult
+    private func addRecent(for buffer: Buffer, closing: Bool = false) -> RecentEntry {
         var entry: RecentEntry
         if let url = buffer.fileURL {
             entry = RecentEntry(id: UUID(), kind: .file, path: url.path,
@@ -471,6 +490,24 @@ final class AppState: ObservableObject {
         recents.insert(entry, at: 0)
         if recents.count > 30 { recents.removeLast(recents.count - 30) }
         persistRecentsSoon()
+        return entry
+    }
+
+    /// Reabre la última pestaña cerrada que no esté ya abierta (Cmd+Shift+T).
+    func reopenLastClosed() {
+        while let entry = closedTabHistory.popLast() {
+            if entry.kind == .file, let path = entry.path {
+                guard !buffers.contains(where: { $0.fileURL?.path == path }) else { continue }
+                // open(url:) recupera el draft asociado si se cerró con cambios sin guardar.
+                open(url: URL(fileURLWithPath: path))
+                return
+            }
+            if let dID = entry.draftID {
+                guard !buffers.contains(where: { $0.id == dID }) else { continue }
+                reopenRecent(entry)
+                return
+            }
+        }
     }
 
     // MARK: - Persistencia

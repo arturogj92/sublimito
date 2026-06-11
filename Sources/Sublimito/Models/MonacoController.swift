@@ -19,7 +19,7 @@ final class MonacoController: NSObject, WKScriptMessageHandlerWithReply, WKNavig
 
     override private init() {
         let config = WKWebViewConfiguration()
-        webView = WKWebView(frame: .zero, configuration: config)
+        webView = FileDropWebView(frame: .zero, configuration: config)
         super.init()
         config.userContentController.addScriptMessageHandler(self, contentWorld: .page, name: "bridge")
         webView.navigationDelegate = self

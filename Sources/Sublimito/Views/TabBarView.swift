@@ -1,4 +1,5 @@
 import SwiftUI
+import UniformTypeIdentifiers
 
 struct TabBarView: View {
     @EnvironmentObject var state: AppState
@@ -10,6 +11,11 @@ struct TabBarView: View {
                     ForEach(state.orderedTabs) { buffer in
                         TabItemView(buffer: buffer)
                             .id(buffer.id)
+                            .onDrag {
+                                state.draggingTabID = buffer.id
+                                return NSItemProvider(object: buffer.id.uuidString as NSString)
+                            }
+                            .onDrop(of: [.plainText], delegate: TabReorderDropDelegate(targetID: buffer.id, state: state))
                     }
                     Button(action: { state.newBuffer() }) {
                         Image(systemName: "plus")
@@ -28,6 +34,31 @@ struct TabBarView: View {
         }
         .frame(height: 30)
         .background(Color(nsColor: .windowBackgroundColor))
+    }
+}
+
+/// Reordena en vivo: al entrar el arrastre sobre otra pestaña, mueve la arrastrada
+/// a su posición. El drop solo confirma (el orden ya cambió durante el arrastre).
+private struct TabReorderDropDelegate: DropDelegate {
+    let targetID: UUID
+    let state: AppState
+
+    func dropEntered(info: DropInfo) {
+        guard let dragged = state.draggingTabID else { return }
+        state.moveTab(id: dragged, to: targetID)
+    }
+
+    func dropUpdated(info: DropInfo) -> DropProposal? {
+        DropProposal(operation: state.draggingTabID == nil ? .forbidden : .move)
+    }
+
+    func validateDrop(info: DropInfo) -> Bool {
+        state.draggingTabID != nil
+    }
+
+    func performDrop(info: DropInfo) -> Bool {
+        state.draggingTabID = nil
+        return true
     }
 }
 
