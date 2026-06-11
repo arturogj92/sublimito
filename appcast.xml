@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle"
+     xmlns:dc="http://purl.org/dc/elements/1.1/">
+    <channel>
+        <title>Sublimito Updates</title>
+        <link>https://github.com/arturogj92/sublimito</link>
+        <description>Automatic updates for Sublimito</description>
+        <language>en</language>
+        <item>
+            <title>Version 1.1.0</title>
+            <description><![CDATA[
+Primera versión con auto-update. Fix del parpadeo al abrir ficheros, drag and drop de ficheros a la ventana, reordenar pestañas arrastrando, reabrir última pestaña cerrada (Cmd+Shift+T) y sección Recents plegable.
+            ]]></description>
+            <pubDate>Thu, 11 Jun 2026 20:37:34 +0200</pubDate>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <enclosure
+                url="https://github.com/arturogj92/sublimito/releases/download/v1.1.0/Sublimito-v1.1.0-macOS.zip"
+                sparkle:version="2"
+                sparkle:shortVersionString="1.1.0"
+                length="7303296"
+                type="application/octet-stream"
+            />
+        </item>
+    </channel>
+</rss>
