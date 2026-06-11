@@ -26,8 +26,9 @@ targets:
       properties:
         CFBundleName: Sublimito
         CFBundleDisplayName: Sublimito
-        CFBundleShortVersionString: "1.1.0"
-        CFBundleVersion: "2"
+        # La versión real vive en MARKETING_VERSION / CURRENT_PROJECT_VERSION (abajo).
+        CFBundleShortVersionString: "$(MARKETING_VERSION)"
+        CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
         SUFeedURL: https://raw.githubusercontent.com/arturogj92/sublimito/master/appcast.xml
         LSMinimumSystemVersion: "14.0"
         NSHumanReadableCopyright: "© 2026 Arturo Garcia"
