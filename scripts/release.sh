@@ -69,9 +69,36 @@ xcrun stapler staple "$APP"
 rm "$ZIP"
 /usr/bin/ditto -c -k --norsrc --keepParent "$APP" "$ZIP"
 
+echo "== Verificación como usuario real (gate: aborta si falla) =="
+# Simula la descarga de un usuario: extrae con unzip a pelo (el peor caso — materializa
+# cualquier AppleDouble como fichero) y exige Gatekeeper accepted + staple válido.
+VERIFY_DIR=$(mktemp -d /tmp/sublimito-verify.XXXXXX)
+trap 'rm -rf "$VERIFY_DIR"' EXIT
+unzip -q "$ZIP" -d "$VERIFY_DIR"
+JUNK=$(find "$VERIFY_DIR/Sublimito.app" \( -name '._*' -o -name '.DS_Store' \) | wc -l | tr -d ' ')
+if [ "$JUNK" != "0" ]; then
+  echo "❌ ABORT: el zip contiene $JUNK ficheros AppleDouble/.DS_Store — rompería Gatekeeper" >&2
+  exit 1
+fi
+if ! spctl -a -vv "$VERIFY_DIR/Sublimito.app" 2>&1 | tee /dev/stderr | grep -q 'accepted'; then
+  echo "❌ ABORT: Gatekeeper rechaza la app extraída del zip — NO se publica" >&2
+  exit 1
+fi
+xcrun stapler validate "$VERIFY_DIR/Sublimito.app" || { echo "❌ ABORT: ticket de notarización no grapado" >&2; exit 1; }
+echo "✅ Gate OK: unzip limpio, Gatekeeper accepted, staple válido"
+
 echo "== GitHub release =="
 gh release create "v$VERSION" "$ZIP" --repo "$REPO" \
   --title "v$VERSION" --notes "$NOTES"
+
+echo "== Verificación post-upload (lo que descargará el usuario) =="
+DL_DIR=$(mktemp -d /tmp/sublimito-dl.XXXXXX)
+curl -sL -o "$DL_DIR/dl.zip" "https://github.com/$REPO/releases/download/v$VERSION/Sublimito-v$VERSION-macOS.zip"
+unzip -q "$DL_DIR/dl.zip" -d "$DL_DIR"
+spctl -a -vv "$DL_DIR/Sublimito.app" 2>&1 | grep -q 'accepted' \
+  || { echo "❌ El asset publicado NO pasa Gatekeeper — bórralo con: gh release delete v$VERSION --repo $REPO" >&2; exit 1; }
+rm -rf "$DL_DIR"
+echo "✅ Asset publicado verificado: Gatekeeper accepted"
 
 echo "== Appcast =="
 SIZE=$(stat -f%z "$ZIP")
