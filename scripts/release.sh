@@ -49,13 +49,25 @@ codesign --force --sign "$IDENTITY" --options runtime --timestamp "$APP"
 codesign --verify --deep --strict "$APP"
 
 echo "== Notarizar =="
-/usr/bin/ditto -c -k --keepParent "$APP" "$ZIP"
-xcrun notarytool submit "$ZIP" --keychain-profile "$PROFILE" --wait
+# --norsrc: sin él, el zip lleva entradas AppleDouble (._*) que Archive Utility
+# extrae como ficheros reales dentro del bundle, rompiendo el sello de la firma
+# (Gatekeeper: "unsealed contents present in the root directory of an embedded framework")
+/usr/bin/ditto -c -k --norsrc --keepParent "$APP" "$ZIP"
+# Credenciales: fichero local (~/.config/sublimito/notary.env, fuera del repo) o,
+# en su defecto, perfil del keychain (no funciona en sesiones sin GUI).
+NOTARY_ENV="$HOME/.config/sublimito/notary.env"
+if [ -f "$NOTARY_ENV" ]; then
+  source "$NOTARY_ENV"
+  xcrun notarytool submit "$ZIP" --apple-id "$APPLE_ID" --team-id "$TEAM_ID" \
+    --password "$APP_PWD" --wait
+else
+  xcrun notarytool submit "$ZIP" --keychain-profile "$PROFILE" --wait
+fi
 
 echo "== Staple y re-zip =="
 xcrun stapler staple "$APP"
 rm "$ZIP"
-/usr/bin/ditto -c -k --keepParent "$APP" "$ZIP"
+/usr/bin/ditto -c -k --norsrc --keepParent "$APP" "$ZIP"
 
 echo "== GitHub release =="
 gh release create "v$VERSION" "$ZIP" --repo "$REPO" \

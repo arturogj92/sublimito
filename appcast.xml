@@ -17,7 +17,7 @@ Primera versión con auto-update. Fix del parpadeo al abrir ficheros, drag and d
                 url="https://github.com/arturogj92/sublimito/releases/download/v1.1.0/Sublimito-v1.1.0-macOS.zip"
                 sparkle:version="2"
                 sparkle:shortVersionString="1.1.0"
-                length="7303296"
+                length="7183946"
                 type="application/octet-stream"
             />
         </item>
